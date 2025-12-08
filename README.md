@@ -34,4 +34,4 @@ Having denoised the mock microbiome library, and hence generated a set of amplic
 
 ## Running the Code
 The R code, shell script, and julia scripts are all assumed to be inthe directory specified by "basepath".  This directory has an associated sub-directory structure shown in ![alt text][dirStruct]      
-[dirStruct]: https://github.com/user-attachments/files/2366822/ASVcodeLayout.pdf
+[dirStruct]: (https://github.com/user-attachments/files/2366822/ASVcodeLayout.pdf)
