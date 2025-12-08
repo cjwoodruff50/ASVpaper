@@ -31,3 +31,6 @@ Having denoised the mock microbiome library, and hence generated a set of amplic
   10. Save the read counts for each labelled ASV.  Using the number of operons for the relevant strain convert operon counts to cellular counts for each strain, and the return the relative cellular abundance of each strain identified, distinguishing strains that were in the designed mock microbiome and those not in the mock microbiome.
   11. Generate 2D UMAP projection plots that illustrate the identification performance being achieved with the analysis.
   12. Generate scatterplots of observed proportions vs. designed (or expected) proportions - or the logarithm of these quantitites - showing the quantification performance of the analysis.
+
+## Running the Code
+The R code, shell script, and julia scripts are all assumed to be inthe directory specified by "basepath".  This directory has an associated sub-directory structiure shown in      !https://github.com/user-attachments/files/2366822/ASVcodeLayout.pdf 
