@@ -14,6 +14,10 @@ The 3 items below are executed through make_mock_store.R.
   2. Determine the number of simulated reads to be generated for each operon, based on an approximate number of reads that the library of the pre-filtered mock microbiome is to have for the operons of the most abunmdant strain.
   3. For each operon submit a batch job that generates a moderate excess of simulated reads over the number actually required for the mock microbiome library.  Note that the reads will be randomly selected from the store without replacement.
 
-The 2 items below are executed throgh make_mock_denoise.R
+Item 4 is executed throgh make_mock_denoise.R, Part 1.
 
-  4. On completion of simulated read generation of all operons, randomly select the required number of reads for each operon and store as a single, multifastq file.  this is the dataset of the designed mock microbiome.
+  4. On completion of simulated read generation of all operons, randomly select the required number of reads for each operon and store as a single, multifastq file.  This is the dataset of the designed mock microbiome.
+
+The remaining processing pipeline applies to any single fastq file that corresponds to a ribosomal RNA 16S , 23S or 16S-ITS-23S amplicon library for some microbiome.  
+
+  5. Submit the mock microbiome fastq library for quality and length filtering and subsequent denoising using teh Robust Amplicon Denoising algorithm of Kumar et al.. These steps are exewcuted in Julia code.  The Julia  script used here is a simple elaboration of of that provided by Ben Murrell (cite(Murrell_github, and private communication).  Item 5 can be executed through part 2 of  make_mock_denoise.R .
