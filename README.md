@@ -33,4 +33,5 @@ Having denoised the mock microbiome library, and hence generated a set of amplic
   12. Generate scatterplots of observed proportions vs. designed (or expected) proportions - or the logarithm of these quantitites - showing the quantification performance of the analysis.
 
 ## Running the Code
-The R code, shell script, and julia scripts are all assumed to be inthe directory specified by "basepath".  This directory has an associated sub-directory structiure shown in      !https://github.com/user-attachments/files/2366822/ASVcodeLayout.pdf 
+The R code, shell script, and julia scripts are all assumed to be inthe directory specified by "basepath".  This directory has an associated sub-directory structure shown in ![alt text][dirStruct]      
+[dirStruct]: https://github.com/user-attachments/files/2366822/ASVcodeLayout.pdf
