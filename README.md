@@ -33,5 +33,10 @@ Having denoised the mock microbiome library, and hence generated a set of amplic
   12. Generate scatterplots of observed proportions vs. designed (or expected) proportions - or the logarithm of these quantitites - showing the quantification performance of the analysis.
 
 ## Running the Code
-The R code, shell script, and julia scripts are all assumed to be inthe directory specified by "basepath".  This directory has an associated sub-directory structure shown in ![alt text][dirStruct]      
+The R code, shell script, and julia scripts are all assumed to be in the directory specified by "basepath".  This directory has an associated sub-directory structure shown below 
 ![dirStruct](https://github.com/user-attachments/files/23666822/ASVcodeLayout.pdf)
+
+The code has been written to run any of 21 datasets, and could be modified relatively straightforwardly to process other datasets, whether from real sequenced microbiomes or simulated reads of microbiomes.  In the following we detail how to run one of the simulated read datasets and one of the real sequenced datasets.
+
+### Running Simulated reads dataset mockKB_rrn_C11
+ 1. Ensure that 
