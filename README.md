@@ -24,7 +24,7 @@ The remaining processing pipeline applies to any single fastq file that correspo
 
 Having denoised the mock microbiome library, and hence generated a set of amplicon sequence variants (ASVs), the next part of the processing pipeline uses these ASVs to identify what strains, species or genera are present, and their relative abundances. That analysis, elaborated in items 6 to 12 below, is all included in the code  blastn_call_ident_quant.R .  
 
-  6. Set up characterising data on the mock microbiome, such as strain names, number of operons for each strain, expected relative abundances.  Note that, because the microbiomes considered in this analysis, there are expected relative abundances available.  These may be determined based on amounts of DNA for each strain that was prepared in  wet lab operations for sequencing, or as designed if a mock microbiome is generated from simulated reads.
+  6. Set up characterising data on the mock microbiome, such as strain names, number of operons for each strain, expected relative abundances.  Note that, because the microbiomes considered in this analysis are mock microbiomes, there are expected relative abundances available.  These may be determined based on amounts of DNA for each strain that was prepared in wet lab operations for sequencing, or as designed if a mock microbiome is generated from simulated reads.
   7. Read the key text files generated as output by RAD, specifying the sequence of eahc ASV and the reads associated with each ASV.
   8. Set up a call of blastn to align each ASV against the reference strain database.  We call blastn via R's system2() function.  Two such calls are made to generate different output sets.
   9. Parse the blastn output to determine the best match of each ASV sequence to the operons in the database, breaking ties for best alignment by selecting the first listed database entry.  Each ASV then has a strain label.
@@ -33,10 +33,18 @@ Having denoised the mock microbiome library, and hence generated a set of amplic
   12. Generate scatterplots of observed proportions vs. designed (or expected) proportions - or the logarithm of these quantitites - showing the quantification performance of the analysis.
 
 ## Running the Code
-The R code, shell script, and julia scripts are all assumed to be in the directory specified by "basepath".  This directory has an associated sub-directory structure shown below 
+The R code, shell script, and julia scripts are all assumed to be in the directory specified by **basepath**.  This directory has an associated sub-directory structure shown below 
 ![dirStruct](https://github.com/user-attachments/files/23666822/ASVcodeLayout.pdf)
 
 The code has been written to run any of 21 datasets, and could be modified relatively straightforwardly to process other datasets, whether from real sequenced microbiomes or simulated reads of microbiomes.  In the following we detail how to run one of the simulated read datasets and one of the real sequenced datasets.
 
 ### Running Simulated reads dataset mockKB_rrn_C11
- 1. Ensure that 
+ 1. Ensure that the following code scripts are in the **basepath** directory:-
+    * badread_mKB.sh
+    * RADrun.jl and juliaEnvwipe.jl
+    * make_mock_operon_store.R
+    * make_mock_and_denoise.R
+    * blastn_call_ident_quant.R
+    * juliaRADrun.sh 
+2. Determine the design of the mock microbiome.
+    * The free parameters for this are number of reads of the most abundant strain, and the region of the rrn operon (16S, 23S, rrn)
