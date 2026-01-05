@@ -53,16 +53,21 @@ The code has been written to run any of 21 datasets, and could be modified relat
 
 ### Instructions for quickly running datasets 
 To directly run the processing pipeline for one of the datasets proceed as follows:-
+
 0. Set up the directory structure detailed below for **basepath**  (see section Running the Code below).
    In the example calls below  **basepath*  is /vast/projects/rrn/ASVtest
-                               CaseStr            is 11
-                               meanQ              is 30
-                               stdQ               is 4
-                               Numops             is 291
-                               Nstrain            is 59
+                               CaseStr            is 11 for all simulated reads examples, C03 for real rea datasets
+                               meanQ              is 30 (only relevant for simulated reads datasets)
+                               stdQ               is 4  (only relevant for simulated reads datasets)
+                               Numops             is 291 (only relevant for simulated reads datasets)
+                               Nstrain            is 59 (only relevant for simulated reads datasets)
                                ErrRateThresh      is 0.01 (or 0.015)
+                               whichSubunit       is 16S or 23S for Ser datasets, rrn for Sri datasets, and 16S, 23S or rrn for mockKB datasets
+                               whichMock          is only non-zero for mSerS (Sereika) datasets
+                               whichPair          is only non-zero for mSri (Srinivas) datasets
+                               Numops Nstrain are only non-zero for simulated read (mockKB) datasets
    
-1. Create an operon store for simulated reads mock microbiome - e.g. mockKB_23S_C11
+2. Create an operon store for simulated reads mock microbiome - e.g. mockKB_23S_C11
 
    Rscript --vanilla make_mock_operon_store.R basepath whichMock whichSubunit whichCase
                 meanQ stdQ Numops Nstrain maxNop nthreads
@@ -75,7 +80,7 @@ To directly run the processing pipeline for one of the datasets proceed as follo
    Denoise the microbiome created or one that is from real sequencing.
    
    Rscript --vanilla make_mock_and_denoise.R basepath whichMock whichSubunit whichCase
-     whichSubMock whichPair uppThreshErrRate totOperons totalStrains numcores
+     whichSubMock whichPair uppThreshErrRate Numops Nstrain numcores
    
    Sample calls  
     e.g. for mockKB_23S_C11 (whichSubMock=0, whihchPair=0 for any simulated reads dataset)
@@ -110,7 +115,7 @@ To directly run the processing pipeline for one of the datasets proceed as follo
    strains, species and genera present in the mock microbiome.
    
    Rscript --vanilla blastn_call_ident_quant.R <basepath> whichMock whichSubunit whichCase
-        whichSubMock whichPair uppThreshErrRate totalNumberOperons totalNumberStrains numcores
+        whichSubMock whichPair uppThreshErrRate Numops Nstrain numcores
    
     e.g. for mSriSA2_rrn_03 with error rate threshold 0.0125
    
@@ -118,7 +123,7 @@ To directly run the processing pipeline for one of the datasets proceed as follo
                    mSriSA2 rrn 03 0 2 0.0125 0 0 2
                    
    Running this call for mockKB is likely to lead to exceeding the allowed resources on a
-   terminal session.  Hence a slurm job is needed, via the shel script  blastnCallIDQuant.sh
+   terminal session.  Hence a slurm job is needed, via the shell script  blastnCallIDQuant.sh
    which has the same 10 parameters.
    
    sbatch --mem=100GB --time=4:00:00 blastnCallIDQuant.sh  basepath  whichMock 
