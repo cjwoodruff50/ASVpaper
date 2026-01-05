@@ -19,6 +19,7 @@ To directly run the processing pipeline for one of the datasets proceed as follo
 
    Rscript --vanilla make_mock_operon_store.R basepath whichMock whichSubunit whichCase
                 meanQ stdQ Numops Nstrain maxNop nthreads
+   
    Sample call (noting that mockKB has 59 strains and 291 operons):-
      Rscript --vanilla make_mock_operon_store.R /vast/projects/rrn/ASVtest 
                mockKB 23S 11 30 4 291 59 30000 12           
@@ -31,14 +32,22 @@ To directly run the processing pipeline for one of the datasets proceed as follo
    
    Sample calls  
     e.g. for mockKB_23S_C11 (whichSubMock=0, whihchPair=0 for any simulated reads dataset)
+   
     Rscript --vanilla make_mock_and_denoise.R /vast/projects/rrn/ASVtest mockKB 23S 11 0 0
                         0.01 291 59 2
+   
+   
     e.g. for mSriSA2_rrn_C03 (for Srinivas data whichMock=0, whichPair>0)
+   
     Rscript --vanilla make_mock_and_denoise.R /vast/projects/rrn/ASVtest mSriSA2 rrn 03 0 
                         2 0.015 0 0 2
-    e.g. for mSerS3_16S_C03 (whichSubMock=2; for Sereika subsampled data whichMock is non-zero,  whichPair=0) 
+   
+   
+    e.g. for mSerS3_16S_C03 (whichSubMock=2; for Sereika subsampled data whichMock is non-zero,  whichPair=0)
+   
     Rscript --vanilla make_mock_and_denoise.R /vast/projects/rrn/ASVtest mSerS3 16S 03 3 0
-                 0.01 0 0 2                                         
+                 0.01 0 0 2
+                                    
    
 5. Generate kmer spectra for the ASVs and the reads presented for denoising.
 
@@ -57,6 +66,7 @@ To directly run the processing pipeline for one of the datasets proceed as follo
         whichSubMock whichPair uppThreshErrRate totalNumberOperons totalNumberStrains numcores
    
     e.g. for mSriSA2_rrn_03 with error rate threshold 0.0125
+   
      Rscript --vanilla blastn_call_ident_quant.R /vast/projects/rrn/ASVtest 
                    mSriSA2 rrn 03 0 2 0.0125 0 0 2
                    
