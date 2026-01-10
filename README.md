@@ -39,6 +39,10 @@ The R code, shell script, and julia scripts are all assumed to be in the directo
 
 The code has been written to run any of 21 datasets, and could be modified relatively straightforwardly to process other datasets, whether from real sequenced microbiomes or simulated reads of microbiomes.  In the following we detail how to run one of the simulated read datasets and one of the real sequenced datasets.
 
+### Initial set up for running code
+  1. Create two blastn databases - one having rRNA operon (rrn) sequences of strains, the other having rrn operon sequences for both organisms only resolved to species level as well as those at strain level. This is done simply by downloading the files  blastn_
+  2. 
+
 ### Running Simulated reads dataset mockKB_rrn_C11
  1. Ensure that the following code scripts are in the **basepath** directory:-
     * badread_mKB.sh
@@ -56,16 +60,27 @@ To directly run the processing pipeline for one of the datasets proceed as follo
 
 0. Set up the directory structure detailed below for **basepath**  (see section Running the Code below).
    In the example calls below  **basepath*  is /vast/projects/rrn/ASVtest
+   
                                CaseStr            is 11 for all simulated reads examples, C03 for real rea datasets
+   
                                meanQ              is 30 (only relevant for simulated reads datasets)
+   
                                stdQ               is 4  (only relevant for simulated reads datasets)
+   
                                Numops             is 291 (only relevant for simulated reads datasets)
+   
                                Nstrain            is 59 (only relevant for simulated reads datasets)
+   
                                ErrRateThresh      is 0.01 (or 0.015)
+   
                                whichSubunit       is 16S or 23S for Ser datasets, rrn for Sri datasets, and 16S, 23S or rrn for mockKB datasets
+   
                                whichMock          is only non-zero for mSerS (Sereika) datasets
+   
                                whichPair          is only non-zero for mSri (Srinivas) datasets
+   
                                Numops Nstrain are only non-zero for simulated read (mockKB) datasets
+   
    
 2. Create an operon store for simulated reads mock microbiome - e.g. mockKB_23S_C11
 
