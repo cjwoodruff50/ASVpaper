@@ -34,14 +34,50 @@ Having denoised the mock microbiome library, and hence generated a set of amplic
   12. Generate scatterplots of observed proportions vs. designed (or expected) proportions - or the logarithm of these quantitites - showing the quantification performance of the analysis.
 
 ## Running the Code
-The R code, shell script, and julia scripts are all assumed to be in the directory specified by **basepath**.  This directory has an associated sub-directory structure shown below 
+The R code, shell script, and julia scripts are all assumed to be in the directory specified by **basepath**.  This directory has an associated sub-directory structure shown at  
 ![dirStruct](https://github.com/user-attachments/files/23666822/ASVcodeLayout.pdf). In that figure the directory  ASVcode  corresponds to **basepath**.
 
-The code has been written to run any of 21 datasets, and could be modified relatively straightforwardly to process other datasets, whether from real sequenced microbiomes or simulated reads of microbiomes.  In the following we detail how to run one of the simulated read datasets and one of the real sequenced datasets.  To run the code it is necessary to load a number of files from Figshare, including the two blastn databases that are used (here identified as blastndb1 and blastndb2), and the 16S, 23S and rrn sequences of all operons of each strain in the strain-only database, blastndb1.
+The code has been written to run any of 21 datasets, and could be modified relatively straightforwardly to process other datasets, whether from real sequenced microbiomes or simulated reads of microbiomes.  In the following we detail how to run one of the simulated read datasets and one of the real sequenced datasets.  To run the code it is necessary to load a number of files from Figshare, including the two blastn databases that are used (here identified as blastdb1 and blastdb2), and the 16S, 23S and rrn sequences of all operons of each strain in the strain-only database, blastndb1. Details of the Figshare material and how to use this material to set up the database environment is given below.
 
-### Initial set up for running code
-  1. Create two blastn databases - one having rRNA operon (rrn) sequences of strains, the other having rrn operon sequences for both organisms only resolved to species level as well as those at strain level. This is done simply by downloading the files  blastn_
-  2. 
+### Figshare repository description and content use.
+
+#### Description
+Figshare account .... holds the set of files related to the blast reference databases 
+and the 18 datasets of real nanopore-sequenced data.  The blast-related set of files are
+in the item  DB1_DB2_multifasta_specR_KGDB_files.  The datasets are in two parts - that from
+Srinivas M et al. (2025) and that from extracting 16S and 23S rRNA gene sequences from 
+whole genome sequencing of microbiomes in the study of Sereika M et al. (2022).  The 
+Srinivas datasets are individually available as gzipped files, while the Sereika datasets, 
+being much smaller, were tarred before gzipping.
+
+#### How to Use the Content
+It is assumed that the directory structure detailed in the Github repository for this 
+project has been established. 
+
+For the   DB1_DB2_multifasta_specR_KGDB_files  entry follow the steps below:-
+   1. Download   DB1_DB2_multifasta_specR_KGDB_files to <basepath>/GROND
+   2. Unzip and untar .  This gives a number of zipped and (mostly) tarred files.
+   3. Move the blastdb1 file to the sub-directory blastdb1 and untar, so creating the 
+      strain-only database.
+   4. Analogously for the blastdb2 file to give the species-level database.
+   5. Move the multifasta16S tarred file to the sub-directory multifasta16S and untar.
+      Likewise for the multifasta23s and multifastarrn zipped files.  
+   6. unzip and untar the remaining downloads and leave them in the 
+      <basepath>/GROND sub-directory    
+That completes setting up the database structure and links to the King et al. (2019) Gut 
+Feeling Knowledge Base to allow creation of the simulated reads datasets, and also to carry 
+out blastn alignments against the Walsh et al.'s (2024) GROND-derived operon databases.  
+
+The dataset files should be placed in the <basepath>/fastq sub-directory and then unzipped 
+(and untarred for the Sereika datasets).   
+
+#### References: (full reference details in the primary document).
+  Srinivas M et al. Scientific Reports 2025
+  Sereika M et al. Nature Methods 2022
+  King C.H. et al. PLoS One 2019
+  Walsh C.J. et al. Microbial Genomics 2024
+
+ 
 
 ### Running Simulated reads dataset mockKB_rrn_C11
  1. Ensure that the following code scripts are in the **basepath** directory:-
@@ -50,7 +86,8 @@ The code has been written to run any of 21 datasets, and could be modified relat
     * make_mock_operon_store.R
     * make_mock_and_denoise.R
     * blastn_call_ident_quant.R
-    * juliaRADrun.sh 
+    * juliaRADrun.sh
+      
 2. Determine the design of the mock microbiome.
     * The free parameters for this are the number of reads of the most abundant strain, and the region of the rrn operon (16S, 23S, rrn)
   
@@ -58,28 +95,18 @@ The code has been written to run any of 21 datasets, and could be modified relat
 ### Instructions for quickly running datasets 
 To directly run the processing pipeline for one of the datasets proceed as follows:-
 
-0. Set up the directory structure detailed below for **basepath**  (see section Running the Code below).
+0. Set up the directory structure detailed below for **basepath**  (see section Running the Code above).
    In the example calls below  **basepath*  is /vast/projects/rrn/ASVtest
-   
-                               CaseStr            is 11 for all simulated reads examples, C03 for real rea datasets
-   
-                               meanQ              is 30 (only relevant for simulated reads datasets)
-   
-                               stdQ               is 4  (only relevant for simulated reads datasets)
-   
-                               Numops             is 291 (only relevant for simulated reads datasets)
-   
-                               Nstrain            is 59 (only relevant for simulated reads datasets)
-   
-                               ErrRateThresh      is 0.01 (or 0.015)
-   
-                               whichSubunit       is 16S or 23S for Ser datasets, rrn for Sri datasets, and 16S, 23S or rrn for mockKB datasets
-   
-                               whichMock          is only non-zero for mSerS (Sereika) datasets
-   
-                               whichPair          is only non-zero for mSri (Srinivas) datasets
-   
-                               Numops Nstrain are only non-zero for simulated read (mockKB) datasets
+     * CaseStr            is 11 for all simulated reads examples, C03 for real rea datasets
+     * meanQ              is 30 (only relevant for simulated reads datasets)
+     * stdQ               is 4  (only relevant for simulated reads datasets)
+     * Numops             is 291 (only relevant for simulated reads datasets)
+     * Nstrain            is 59 (only relevant for simulated reads datasets)
+     * ErrRateThresh      is 0.01 (or 0.015)
+     * whichSubunit       is 16S or 23S for Ser datasets, rrn for Sri datasets, and 16S, 23S or rrn for mockKB datasets
+     * whichMock          is only non-zero for mSerS (Sereika) datasets
+     * whichPair          is only non-zero for mSri (Srinivas) datasets
+     * Numops Nstrain are only non-zero for simulated read (mockKB) datasets
    
    
 2. Create an operon store for simulated reads mock microbiome - e.g. mockKB_23S_C11
