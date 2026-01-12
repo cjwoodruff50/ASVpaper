@@ -37,7 +37,7 @@ Having denoised the mock microbiome library, and hence generated a set of amplic
 The R code, shell script, and julia scripts are all assumed to be in the directory specified by **basepath**.  This directory has an associated sub-directory structure shown below 
 ![dirStruct](https://github.com/user-attachments/files/23666822/ASVcodeLayout.pdf). In that figure the directory  ASVcode  corresponds to **basepath**.
 
-The code has been written to run any of 21 datasets, and could be modified relatively straightforwardly to process other datasets, whether from real sequenced microbiomes or simulated reads of microbiomes.  In the following we detail how to run one of the simulated read datasets and one of the real sequenced datasets.
+The code has been written to run any of 21 datasets, and could be modified relatively straightforwardly to process other datasets, whether from real sequenced microbiomes or simulated reads of microbiomes.  In the following we detail how to run one of the simulated read datasets and one of the real sequenced datasets.  To run the code it is necessary to load a number of files from Figshare, including the two blastn databases that are used (here identified as blastndb1 and blastndb2), and the 16S, 23S and rrn sequences of all operons of each strain in the strain-only database, blastndb1.
 
 ### Initial set up for running code
   1. Create two blastn databases - one having rRNA operon (rrn) sequences of strains, the other having rrn operon sequences for both organisms only resolved to species level as well as those at strain level. This is done simply by downloading the files  blastn_
