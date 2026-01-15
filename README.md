@@ -55,27 +55,27 @@ It is assumed that the directory structure detailed in the Github repository for
 project has been established. 
 
 For the   DB1_DB2_multifasta_specR_KGDB_files  entry follow the steps below:-
-   1. Download   DB1_DB2_multifasta_specR_KGDB_files to <basepath>/GROND
+   1. Download   DB1_DB2_multifasta_specR_KGDB_files to ...basepath/GROND
    2. Unzip and untar .  This gives a number of zipped and (mostly) tarred files.
-   3. Move the blastdb1 file to the sub-directory blastdb1 and untar, so creating the 
+   3. Move the blastdb1 file to the sub-directory ...basepath/GROND/blastdb1 and untar, so creating the 
       strain-only database.
    4. Analogously for the blastdb2 file to give the species-level database.
-   5. Move the multifasta16S tarred file to the sub-directory multifasta16S and untar.
-      Likewise for the multifasta23s and multifastarrn zipped files.  
+   5. Move the multifasta16S tarred file to the sub-directory ...basepath/GROND/multifasta16S and untar.
+      Likewise for the .../multifasta23s and .../multifastarrn zipped files.  
    6. unzip and untar the remaining downloads and leave them in the 
-      <basepath>/GROND sub-directory    
-That completes setting up the database structure and links to the King et al. (2019) Gut 
-Feeling Knowledge Base to allow creation of the simulated reads datasets, and also to carry 
-out blastn alignments against the Walsh et al.'s (2024) GROND-derived operon databases.  
+      ...basepath/GROND sub-directory    
+That completes setting up of the database structure and links to the King et al. (2019) Gut 
+Feeling Knowledge Base.  This allows creation of the simulated reads datasets, and also carrying  
+out of blastn alignments against the Walsh et al.'s (2024) GROND-derived operon databases.  
 
-The dataset files should be placed in the <basepath>/fastq sub-directory and then unzipped 
+The dataset files should be placed in the ...basepath/fastq sub-directory and then unzipped 
 (and untarred for the Sereika datasets).   
 
 #### References: (full reference details in the primary document).
-  Srinivas M et al. Scientific Reports 2025
-  Sereika M et al. Nature Methods 2022
-  King C.H. et al. PLoS One 2019
-  Walsh C.J. et al. Microbial Genomics 2024
+  * Srinivas M et al. Scientific Reports 2025
+  * Sereika M et al. Nature Methods 2022
+  * King C.H. et al. PLoS One 2019
+  * Walsh C.J. et al. Microbial Genomics 2024
 
  
 
