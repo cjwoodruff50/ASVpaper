@@ -9,50 +9,70 @@ Pkg.add("DelimitedFiles");
 Pkg.add("StatsBase")
 Pkg.add("PyPlot");
 
-using ArgParse
-commandLine=ArgParseSettings()
-println(commandLine)
-@add_arg_table! commandLine begin
-    "--whichMock", "-m"
-        help = "Name of the mock microbiome - e.g. mockKB, mSerF,mSerS2,mSriSA3,mSriSZ4"
-        arg_type = AbstractString
-        required = true
-    "--whichSubunit", "-s"
-        help = "16S, 23S, or rrn"
-        arg_type = AbstractString
-        required = true
-    "--whichCase", "-c"
-        help = "which set of quality parameters, e.g. 03, 10, 11"
-        arg_type = AbstractString
-        required = true
-    "whichSubMock"
-        help = "For Sereika data, indexes the sub-samples.  default = 0"
-        arg_type = Int
-        default = 0 
-    "whichPair"
-        help = "For Srinivas data specifying which primer pair"
-        arg_type = Int
-        default = 0
-    "uppThreshErrRate"
-        help = "Upper threshold on read error rate for pre-RAD quality filtering. Passed as an integer, being the reciprocal of the error rate."
-        arg_type = Int
-        default = 100
-end
-  
-   
-parsed_args = parse_args(commandLine)
+#using ArgParse
+#commandLine=ArgParseSettings()
+#println(commandLine)
+#@add_arg_table! commandLine begin
+#    "basepath"
+#        help = "The parent directory for all sub-directories required for the processing pipeline"
+#        arg_type = AbstractString
+#        required = true
+#    "--whichMock", "-m"
+#        help = "Name of the mock microbiome - e.g. mockKB, mSerF,mSerS2,mSriSA3,mSriSZ4"
+#        arg_type = AbstractString
+#        required = true
+#    "--whichSubunit", "-s"
+#        help = "16S, 23S, or rrn"
+#        arg_type = AbstractString
+#        required = true
+#    "--whichCase", "-c"
+#        help = "which set of quality parameters, e.g. 03, 10, 11"
+#        arg_type = AbstractString
+#        required = true
+#    "whichSubMock"
+#        help = "For Sereika data, indexes the sub-samples.  default = 0"
+#        arg_type = Int
+#        default = 0 
+#    "whichPair"
+#        help = "For Srinivas data specifying which primer pair"
+#        arg_type = Int
+#        default = 0
+#   "uppThreshErrRate"
+#        help = "Upper threshold on read error rate for pre-RAD quality filtering. Passed as an integer, being the reciprocal of the error rate."
+#        arg_type = AbstractString
+#        default = 0.01
+#end
 
-wMock=parsed_args["whichMock"]
-wSub=parsed_args["whichSubunit"]
-wCase=parsed_args["whichCase"]
-wSM=parsed_args["whichSubMock"]
-wP=parsed_args["whichPair"]
-uppER=1/parsed_args["uppThreshErrRate"]
-ERstr = SubString(string(uppER),3,minimum([6,length(string(uppER))]))
-ERstring = join(["ER_less_0.",ERstr],"")
-println([wMock,wSub,wCase,wSM,wP,ERstr])
+basepath = ARGS[1]
+wMock = ARGS[2]
+wSub = ARGS[3]
+wCase = ARGS[4]
+wSM = ARGS[5]
+wP = ARGS[6]
+upperERstring = ARGS[7]
+
+#parsed_args = parse_args(commandLine)
+#basepath=parsed_args["basepath"]
+#wMock=parsed_args["whichMock"]
+#wSub=parsed_args["whichSubunit"]
+#wCase=parsed_args["whichCase"]
+#wSM=parsed_args["whichSubMock"]
+#wP=parsed_args["whichPair"]
+#upperERstring = parsed_args["uppThreshErrRate"]
+println(typeof(upperERstring))
+uppER=parse(Float64,upperERstring)
+println(uppER)
+ERstr = SubString(string(uppER),1,minimum([6,length(string(uppER))]))
+ERchar = collect("0.0000")
+charER = collect(ERstr)
+for j in 1:6
+  ERchar[j] = (j>length(charER) ? "0"[1] : charER[j])
+end
+ERstr = join(ERchar,"")
+ERstring = join(["ER_less_",ERstr],"")
     
 println("Arguments table constructed.")
+println("basepath:         ", basepath)
 println("whichMock:        ", wMock)
 println("whichSubunit:     ", wSub)
 println("whichCase:        ", wCase )
@@ -60,30 +80,31 @@ println("whichSubMock:     ", wSM)
 println("whichPair:        ", wP)
 println("uppThreshErrRate: ",uppER)
 
-basepath = "/vast/projects/rrn/ASVcode"
 println(length(wMock))
 if wMock=="mockKB"
   mstr = "mockKB"
   dataset = join(["mKB",wSub,join(["C",wCase],"")],"_")
-  stem1 = join([mstr,wSub,"Case",wCase],"_")
+  stem1 = join([wMock,wSub,"Case",wCase],"_")
 elseif wMock=="mSerF"
   mstr = "mSerF"
-  dataset = join([mstr,wSub,join(["C",wCase],"")],"_")
-  stem1 = join([mstr,wSub,"Case",wCase],"_")
+  dataset = join([wMock,wSub,join(["C",wCase],"")],"_")
+  stem1 = join([wMock,wSub,"Case",wCase],"_")
 elseif SubString(wMock,1,5) == "mSerS"
   mstr = "mSerS"
-  dataset = join([join([mstr,wSM],""),wSub,join(["C",wCase],"")],"_")
-  stem1 = join([mstr,wSub,join(["Sub",wSM],""),"Case",wCase],"_")
+  dataset = join([wMock,wSub,join(["C",wCase],"")],"_")
+  stem1 = join([wMock,wSub,"Case",wCase],"_")
 elseif SubString(wMock,1,6)=="mSriSA"
   mstr = "SA"
-  stem1 = join([join([mstr,wP],""),wSub,"Case",wCase],"_")
   dataset = join([join([mstr,wP],""),wSub,join(["C",wCase],"")],"_")
+  stem1 = join([join([mstr,wP],""),wSub,"Case",wCase],"_")
 elseif SubString(wMock,1,6)=="mSriSZ"
   mstr = "SZ"
-  stem1 = join([join([mstr,wP],""),wSub,"Case",wCase],"_")
   dataset = join([join([mstr,wP],""),wSub,join(["C",wCase],"")],"_")
+  stem1 = join([join([mstr,wP],""),wSub,"Case",wCase],"_")
 else
   mstr = "invalid"
+  dataset = "None"
+  stem1 = "None"
 end
 
 
@@ -127,24 +148,24 @@ else
     # Save as text files the names of the retained reads, their indices in the input file,
     # and the UMAP coordinates of the ASVs and the retained reads.
     using DataFrames, DelimitedFiles
-    fnameN = join([wMock,wSub,"Case",wCase,ERstring,stem2,"names",suffix1],"_")
+    fnameN = join([stem1,ERstring,stem2,"names",suffix1],"_")
     open(joinpath(basepath,"text",fnameN), "w") do file
         writedlm(file,names)
     end
 
-    fnameI = join([wMock,wSub,"Case",wCase,ERstring, stem2, "indices", suffix1],"_")
+    fnameI = join([stem1,ERstring, stem2, "indices", suffix1],"_")
     open(joinpath(basepath,"text",fnameI), "w") do file
         writedlm(file,template_indices)
     end
 
-    fnameT = join([wMock, wSub, "Case", wCase, ERstring, stem2, "templates", suffix1],"_")
+    fnameT = join([stem1, ERstring, stem2, "templates", suffix1],"_")
     open(joinpath(basepath,"text",fnameT), "w") do file
         writedlm(file,templates)
     end
 
     # Generate UMAP coordinates for the combination of ASVs and the reads from which they were derived.
     using SeqUMAP
-    fnameP = join([wMock,wSub,"Case",wCase, ERstring, stem2, "proj", suffix1],"_")
+    fnameP = join([stem1,ERstring, stem2, "proj", suffix1],"_")
     proj = sequmap(vcat(templates,reads),2, k=6, n_neighbors=10, pca=false, min_dist=1.0);
     open(joinpath(basepath,"text",fnameP), "w") do file
         writedlm(file,proj)
