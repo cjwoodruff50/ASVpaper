@@ -1,4 +1,3 @@
-# 
 # This Rscript creates the design of the microbiome, extracts from the reference DB fasta 
 # files corresponding to the operon or amplicon (16S and 23S rRNA genes or the rrn operon) sequences 
 # of the bacteria in the mock microbiome, sets up for a call of the badread code that 
@@ -10,7 +9,7 @@
 #
 # source("/vast/projects/rrn/RscriptsArchive/current/make_mock_operon_store.R") 
 #
-# 22 November 2025                                                                    [cjw]
+# 15 December 2025                                                                    [cjw]
 args = commandArgs(trailingOnly=TRUE)
 #######################################################################################
 ##########################                               ##############################
@@ -19,13 +18,30 @@ args = commandArgs(trailingOnly=TRUE)
 #######################################################################################
 slurm = TRUE
 if (length(args>0)){
-  maxopnum = args[1]
-  numcores = args[2]
+  basepath = args[1]
+  whichMock = args[2]
+  whichSubunit = args[3]
+  whichCase = args[4]
+  identMean = args[5]
+  identSD = args[6]
+  maxopnum = args[7]
+  nmock = args[8]
+  maxTotfrags = as.numeric(args[9])
+  numcores = as.numeric(args[10])
 } else {
-  maxopnum = 291  # 291 for mockKB (59 strains), 261 for mock50 (50 strains)     
-  numcores = 2
+  basepath = "/vast/projects/rrn/ASVtest"
+  whichMock = "mockKB"
+  whichSubunit = "rrn"
+  whichCase = "11"
+  identMean = 30
+  identSD = 4
+  maxopnum = 291  # 291 for mockKB (59 strains), 261 for mock50 (50 strains)
+  nmock = 59
+  maxTotfrags = 30000  
+  numcores = 16
 }
 
+cat("Basepath  is ",basepath,"\n")
 if (!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager")
 packages <- c("ShortRead", "parallel","tictoc","readxl")    # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -70,9 +86,9 @@ linKBtospecR = function(inname,constructing=FALSE){
   # Get KB and KB abundance data to guide rank-ordering on KB abundance data of the strains being used 
   # in mock microbiomes.
   gfkb.name = "KGFDB.xlsx"  #  "King CH etal SuppMat S4 Table GutFeeling.KB PLoSOne.0206484.s008.xlsx"
-  KB = read_excel(file.path(basepath,"text",gfkb.name))
+  KB = read_excel(file.path(basepath,"GROND",gfkb.name))
   abundKB.name = "KGFDB_Abundance_Tables.xlsx"
-  AbundKB = read_excel(file.path(basepath,"text",abundKB.name))
+  AbundKB = read_excel(file.path(basepath,"GROND",abundKB.name))
   
   if (constructing){
     # Build the mapping from KB to specR.  Doing this is a manual job that is assisted by the code in this 
@@ -140,15 +156,11 @@ linKBtospecR = function(inname,constructing=FALSE){
 ######################################################################################
 ############################     RUN INITIALISATION      ##############################
 #######################################################################################
-basepath = "/vast/projects/rrn/ASVcode"
-whichMock = "mockKB"                  #          "mock50"   
-whichSubunit = "23S"
-whichCase = "11"
 subSampleFactor = 1
 fastqPath = file.path(basepath,"fastq",whichSubunit)
 
 constructing = FALSE
-setwd("/vast/projects/rrn/ASVcode")
+setwd(basepath)
 
 
 #######################################################################################
@@ -216,27 +228,42 @@ for (j in 1:length(specR)){
 inPath = file.path(basepath,"GROND",paste("multifasta",whichSubunit,sep=""))
 instem = paste("grondRefseq_",whichSubunit,"_op",sep="")
 outPath = file.path(basepath,"fasta")
-opcount = 0
 outstem = paste(whichMock,"_",whichSubunit,"_Op_",sep="")
 fastaseqLengths = rep(0,10*nmock)
+
+
+opcount = 0
+OpIndex1=rep(0,nmock)
+DBindex1=rep(0,nmock)
+StrainOpSeqs = vector("list",nmock)
 for (jsp in 1:nmock){
   jopSet = opSpecDBindex[iSpec[jsp],1]-1+opIndex[[jsp]]
   for (jjop in 1:length(jopSet)){
     jop = jopSet[jjop]
     opcount = opcount + 1
-    cat("Species ",jsp," strainDB op index ",jop,"  outname ",paste(outstem,opcount,".fasta",sep=""),"\n")
+    cat("Index ", jsp,"Species ",designStrainNames[jsp]," strainDB op index ",jop,"  outname ",paste(outstem,opcount,".fasta",sep=""),"\n")
+    if (jjop==1){
+      OpIndex1[jsp] = opcount;    DBindex1[jsp] = jop
+    }
     f1 = readFasta(dirPath=inPath,pattern=paste(whichSubunit,"_op",jop,sep="",collapse=""))
     # Modify ShortRead object's id to have no spaces, using "_" instead. Needed to ensure badread-generated
     # fastq objects have full mock strain operon name in header.
-    newid = newid = paste(unlist(strsplit(as.character(ShortRead::id(f1[1])),split=" ")),sep="_",collapse="_")
+    newid = paste(unlist(strsplit(as.character(ShortRead::id(f1[1])),split=" ")),sep="_",collapse="_")
     newf1 = ShortRead(sread(f1[1]),id = BStringSet(newid))
     f1 = newf1
     if (width(f1) >5600) cat("\n Case jsp = ",jsp,"    jop = ",jop,"  too long.\n")
-    writeFasta(f1,file=file.path(outPath,paste(outstem,opcount,".fasta",sep="")))
+#    writeFasta(f1,file=file.path(outPath,paste(outstem,opcount,".fasta",sep="")))
     fastaseqLengths[opcount] = width(f1)
   }
-  cat("Num_ops_per_sstrain",num_ops_per_strain[jsp],"\n\n")
+  cat("Num_ops_per_strain",num_ops_per_strain[jsp],"\n\n")
 }
+cat("Total operons: ",sum(num_ops_per_strain),"  Number of strains: ",nmock,"\n")
+MockKB_OpsTable = data.frame(designStrainNames=designStrainNames,NopsperStrain=num_ops_per_strain, 
+                                  OpIndex1=OpIndex1, DBindex1 = DBindex1)
+print(MockKB_OpsTable)
+outname = "MockKB_OpsTable_identify_strainOps_fastaSequences.RData"
+save(MockKB_OpsTable,opSpecDBindex,file=file.path(basepath,"RData",outname))
+
 fastaseqLengths = fastaseqLengths[1:opcount]
 seqLenName = paste("frag",whichSubunit,"length.sh",sep="")
 line1 = paste("lengths=(",paste(fastaseqLengths,sep=" ",collapse=" "),")",sep="")
@@ -251,46 +278,45 @@ writeLines(line1,con=file.path(basepath,"text",seqLenName))
 # using the planned relative abundances _assumed ordered largest to smallest - while ensuring that more
 # than enough are generated.
 
-setwd("/vast/projects/rrn/ASVcode")
 RA.range = max(RA)/min(RA)
-maxTotfrags = 50000
 allTotfrags = 100 + 100*(maxTotfrags*1.5*RA%%100);    allTotfrags[1] = maxTotfrags
 if (RA.range >10){
   cat("Large variation in relative abundances so use runs with different numbers of generated reads according to RA.\n")
   iord = order(RA,decreasing=TRUE)
-  Ngen = round(maxTotfrags*1.1*RA[iord]/(RA[iord[1]]*100))*100 + 100;   Ngen[1] = maxTotfrags
+  Ngen = round(maxTotfrags*1.2*RA[iord]/(RA[iord[1]]*100))*100 + 100;   Ngen[1] = maxTotfrags
   iset1 = which(Ngen>5000);   iset2 = setdiff(which(Ngen>1000),iset1); iset3 = setdiff(1:nmock,union(iset1,iset2))
   # Run each strain indexed by iset1 in its own slurm job.
-  identMean = 30;   identSD = 4;   
   shellScriptName = "badread_mKB.sh"
   for (j1 in iset1){
     OpLow = indOp[j1,1];    OpHi = indOp[j1,2]
     total_frags = Ngen[j1]
-    maxmemStr = "--mem=32GB";    maxtime = 1 + (OpHi - OpLow)*total_frags/150000 + 1
+    maxmemStr = "--mem=32GB";    maxtime = 1 + (OpHi - OpLow)*total_frags/150000 + 2
     maxtimeStr = paste("--time=",round(maxtime),":00:00",sep="")
-    argstr1 = paste(maxmemStr, maxtimeStr, shellScriptName, whichSubunit,
+    argstr1 = paste(maxmemStr, maxtimeStr, shellScriptName, basepath, whichSubunit,
                     OpLow, OpHi, identMean, identSD, total_frags,sep = " ")
+    cat(argstr1,"\n")
     system2("sbatch",args=argstr1)
   }    #    end     j1    loop
   # Now set up the iset2 generation.
   OpLow = indOp[min(iset2),1];    OpHi = indOp[max(iset2),2]
   total_frags = Ngen[min(iset2)]
-  maxmemStr = "--mem=32GB";    maxtime = 1 + (OpHi - OpLow)*total_frags/150000 + 1
+  maxmemStr = "--mem=32GB";    maxtime = 1 + (OpHi - OpLow)*total_frags/150000 + 2
   maxtimeStr = paste("--time=",round(maxtime),":00:00",sep="")
-  argstr2 = paste(maxmemStr, maxtimeStr, shellScriptName, whichSubunit,
+  argstr2 = paste(maxmemStr, maxtimeStr, shellScriptName, basepath, whichSubunit,
                   OpLow, OpHi, identMean, identSD, total_frags,sep = " ")
+  cat(argstr2,"\n")
   system2("sbatch",args=argstr2)
   
   # And the iset3 generation - same pattern as iset2
   OpLow = indOp[min(iset3),1];    OpHi = indOp[max(iset3),2]
   total_frags = Ngen[min(iset3)]
-  maxmemStr = "--mem=32GB";    maxtime = 1 + (OpHi - OpLow)*total_frags/150000 + 1
+  maxmemStr = "--mem=32GB";    maxtime = 1 + (OpHi - OpLow)*total_frags/150000 + 2
   maxtimeStr = paste("--time=",round(maxtime),":00:00",sep="")
-  argstr3 = paste(maxmemStr, maxtimeStr, shellScriptName, whichSubunit,
+  argstr3 = paste(maxmemStr, maxtimeStr, shellScriptName, basepath, whichSubunit,
                   OpLow, OpHi, identMean, identSD, total_frags,sep = " ")
+  cat(argstr3,"\n")
   system2("sbatch",args=argstr3)
-} else {  
-  identMean = 30;   identSD = 4;   
+} else {   
   shellScriptName = "badread_mKB.sh"
 
   # Generate equal number of reads for each operon.
@@ -304,9 +330,9 @@ if (RA.range >10){
       OpLow = OpHi+1;    OpHi = nmock
     }
     total_frags = maxTotfrags
-    maxmemStr = "--mem=32GB";    maxtime = 1 + (indOp[OpHi,2] - indOp[OpLow,1])*total_frags/150000 + 1
+    maxmemStr = "--mem=32GB";    maxtime = 1 + (indOp[OpHi,2] - indOp[OpLow,1])*total_frags/150000 + 2
     maxtimeStr = paste("--time=",round(maxtime),":00:00",sep="")
-    argstr3 = paste(maxmemStr, maxtimeStr, shellScriptName, whichSubunit,
+    argstr3 = paste(maxmemStr, maxtimeStr, shellScriptName, basepath, whichSubunit,
                     indOp[OpLow,1], indOp[OpHi,2], identMean, identSD, total_frags,sep = " ")
     cat(" Call:   sbatch",argstr3,"\n")
     system2("sbatch",args=argstr3)
@@ -315,98 +341,6 @@ if (RA.range >10){
 
 cat("PART 2 completed. \n")
 
-
-
-#############################################################################################
-#############################################################################################
-#########################    REMOVED CODE 22 November     ###################################
-#############################################################################################
-#############################################################################################
-
-readQscore = function(i,frags.Q,start_trim){
-  t1 = as.character(frags.Q[[i]])
-  t1c = unlist(strsplit(t1,split=""))
-  t1.Q = sapply(1:nchar(t1),function(j){as.integer(charToRaw(t1c[j]))-33})
-  t1.Qmean = -10*log10(mean(sapply(start_trim:nchar(t1),function(j){10^(-t1.Q[j]/10)})))
-  t1.Qstd = -10*log10(sd(sapply(start_trim:nchar(t1),function(j){10^(-t1.Q[j]/10)})))
-  t1.meanQ = mean(t1.Q)
-  out = t1.Qmean       #  c(t1.Qmean,t1.Qstd,t1.meanQ)
-}
-
-
-BRfastq_filtPID = function(i,basepath,whichSubunit,makeplot1=TRUE){ 
-  opnum=i  
-  stem = paste("reads_",whichSubunit,"_Op_",opnum,sep="")           #  unlist(strsplit(fastqName,split="[.]"))[1]
-  readHeadersName = paste("reads_",whichSubunit,"_Op_",opnum,"_headers.txt",sep="")
-  inpath = file.path(basepath,"fastq",readHeadersName)
-  X = readLines(con=file.path(basepath,"text",readHeadersName))
-  igood = which(sapply(1:length(X), function(j){nchar(X[j])< 180}))  
-  newname = paste(stem,"_Qstripped.txt",sep="")
-  writeLines(X[igood],con=file.path(basepath,"text",newname))
-  T = read.delim(file=file.path(basepath,"text",newname),sep=" ")
-  nr = nrow(T)
-  colnames(T) = c("ID.ont","ID.mock","ReadLength","FragLength","ReadPID")
-  #  print(T[1,])
-  
-  # Now parse ID.mock, ReadLength, FragLength, ReadPID to extract the key data.
-  splitChar = c("",",","=","=","=")
-  cname = c("ID.ont","ID.mock","ReadLength","FragLength","ReadPID")
-  IDvec = rep("",nr);   Strand=rep(-9,nr)  
-  ReadLen = rep(0,nr);  FragLen = rep(0,nr);   PID = rep(0.0,nr)
-  for (jr in 1:nr){
-    for (jc in 2:5){
-      t1 = unlist(strsplit(T[jr,cname[jc]],split=splitChar[jc]))
-      if (length(t1)>1){
-        if (jc==2){
-          cstrand = substr(t1[2],start=1,stop=1)
-          Strand[jr] = ifelse(cstrand=="+",1,-1)
-        } else {
-          t11 = t1[2]
-          if (jc==3){
-            ReadLen[jr] = as.integer(t11)
-          } else if (jc==4){
-            FragLen[jr] = as.integer(t11)
-          } else {
-            PID[jr] = as.numeric(as.numeric(substr(t11,start=1,stop=nchar(t11)-1)))
-          }
-        }
-      } else {
-        cat("Improper split character for operon",opnum," row",jr, " column",jc,"\n")
-        cat("   T[jr,cname[jc]]:  ",T[jr,cname[jc]]," split character:  ",splitChar[jc],"\n")
-      }
-    }
-  }
-  T.df = data.frame(ID=T[1:nr,1], strand=Strand, readLength=ReadLen, fragLength=FragLen,PID=PID)
-  ifilt1 = which(sapply(1:length(T.df$PID),function(j){T.df$PID[j]>98.75}))  
-  cat("Number of retained reads after initial filtering (PID=98.75) is ",length(ifilt1),"\n")
-  if (makeplot1){
-    plotname1 = paste(stem,"_histos_PID_Qmean_Op_",opnum,".pdf",sep="")
-    pdf(file=file.path(basepath,"plots",plotname1),paper="a4")
-    par(mfrow=c(2,2))
-    hist(T.df[,"PID"],xlab="PID",main=paste("Badread-simulated mock10 Op",opnum," PID",sep=" ") )
-    hist(log10(100.001-T.df[,"PID"]),xlab="log10(100.001 - PID)",
-         main=paste("Badread-simulated mock10 Op",opnum," PID",sep=" ")) #   which(T.df$PID<98.75)
-    breaks1 = 100 - seq(98.74,100,by = 0.02)
-    hist(1-T.df[ifilt1,"PID"]/100,breaks=breaks1/100,
-         xlab="Fraction Identical",main=paste("Badread-simulated mock10 Op",opnum," PID",sep=" "))
-    hist(log10(1.00001-T.df[ifilt1,"PID"]/100),
-         xlab="log10(1.00001 - PID/100) (= log10(mismatch rate))",main=paste("Badread-simulated mock10 Op",opnum," PID",sep=" "))
-    dev.off()
-  }
-  outname1 = paste(stem,"_metadata_Pidfilt_Op_",opnum,".RData",sep="")
-  save(T.df,ifilt1,file=file.path(basepath,"RData",outname1))
-  out = list(Tdf = T.df, PIDfilt=ifilt1)
-}
-
-
-
-
-uniqDesignSpeciesNames = unique(designSpeciesNames);  nuniqDesignSpeciesNames = length(uniqDesignSpeciesNames)
-indRefSpeciesList = lapply(1:nuniqDesignSpeciesNames,function(j){
-  vec=which(designSpeciesNames==uniqDesignSpeciesNames[j])
-  out=list(species=uniqDesignSpeciesNames[j],index=vec)})
-indRefSpecies = sapply(1:nuniqDesignSpeciesNames,function(j){indRefSpeciesList[[j]]$index})
-nuniqRefSpecies = length(indRefSpecies)
 
 
 

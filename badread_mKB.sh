@@ -8,14 +8,14 @@
 #SBATCH --tasks-per-node=1
 #SBATCH --time=48:00:00
 #SBATCH --mem=240GB
-cd /vast/projects/rrn/ASVcode
-total_frags=$6
-whichSubunit=$1
-OpLow=$2
-OpHi=$3
-identMode=$4
-identSD=$5
-source /vast/projects/rrn/ASVcode/text/frag"$whichSubunit"length.sh
+cd $1
+total_frags=$7
+whichSubunit=$2
+OpLow=$3
+OpHi=$4
+identMode=$5
+identSD=$6
+source $1/text/frag"$whichSubunit"length.sh
 seqLen=("${lengths[@]}")
 processes=$((OpHi-OpLow+1))
 PATH=$PATH:/home/users/allstaff/woodruff.c/.local/bin
@@ -32,6 +32,6 @@ do
            --start_adapter_seq "" --end_adapter_seq "" 2> $log 1> $reads
 done
 
-# sbatch --mem=240GB  --time=48:00:00  badread_mKB.sh <whichSubunit> <OpLow> <OpHi> <identMode> <identSD> <totfrags>
+# sbatch --mem=240GB  --time=48:00:00  badread_mKB.sh <basepath>  <whichSubunit> <OpLow> <OpHi> <identMode> <identSD> <totfrags>
 
 

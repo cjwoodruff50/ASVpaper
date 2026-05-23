@@ -7,9 +7,10 @@
 # a dataset for the mock mocrobiome of interest, while the second part carries
 # out denoising of this dataset.
 #
-# source("/vast/projects/rrn/RscriptsArchive/current/make_mock_and_denoise.R") 
+# source("/vast/projects/rrn/ASVset/make_mock_and_denoise.R") 
 #
-# 2 December 2025                                                                    [cjw]
+# 9 April 2026                                                                    [cjw]
+cat("\n COMMENCING CODE make_mock_and_denoise.R  \n\n")
 args = commandArgs(trailingOnly=TRUE)
 #######################################################################################
 ##########################                               ##############################
@@ -17,13 +18,27 @@ args = commandArgs(trailingOnly=TRUE)
 ##########################                               ##############################
 #######################################################################################
 if (length(args>0)){
-  maxopnum = args[1]
-  nmcok = args[2]
-  numcores = args[3]
+  basepath = args[1]
+  whichMock = args[2]
+  whichSubunit = args[3]
+  whichCase = args[4]
+  whichSubMock = args[5]
+  whichPair = args[6]
+  uppErrRate = args[7]
+  maxopnum = as.numeric(args[8])
+  nmock = as.numeric(args[9])
+  numcores = as.numeric(args[10])
 } else {
+  basepath = "/vast/projects/rrn/ASVtest"
+  whichMock = "mockKB"        # "mSerF"   # "mSerS3"   #    "mSriSZ2"                  
+  whichSubunit = "rrn"
+  whichCase = "11"
+  whichSubMock = 0
+  whichPair = 0
+  uppErrRate = 0.0100
   maxopnum = 291  # 261 for mock50, 48 for mock10   
   nmock = 59      #  50 for mock50, 10 for mock10
-  numcores = 2
+  numcores = 4
 }
 
 if (!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager")
@@ -35,9 +50,7 @@ if (any(installed_packages == FALSE)) {
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
 
-basepath = "/vast/projects/rrn/ASVcode"
-
-
+doPART1 = TRUE
 #######################################################################################
 ##########################                               ##############################
 ##########################           FUNCTIONS           ##############################
@@ -77,7 +90,7 @@ extractFastqHeaders=function(basepath,whichSubunit,maxopnum){
 }
 
 
-BRfastq_filtPID = function(i,basepath,whichSubunit,makeplot1=TRUE){ 
+BRfastq_filtPID = function(i, basepath, whichSubunit, minReadLength=4200, makeplot1=TRUE){ 
   opnum=i  
   stem = paste("reads_",whichSubunit,"_Op_",opnum,sep="")           #  unlist(strsplit(fastqName,split="[.]"))[1]
   readHeadersName = paste("reads_",whichSubunit,"_Op_",opnum,"_headers.txt",sep="")
@@ -119,7 +132,7 @@ BRfastq_filtPID = function(i,basepath,whichSubunit,makeplot1=TRUE){
     }
   }
   T.df = data.frame(ID=T[1:nr,1], strand=Strand, readLength=ReadLen, fragLength=FragLen,PID=PID)
-  ifilt1 = which(sapply(1:length(T.df$PID),function(j){T.df$PID[j]>98.75}))  
+  ifilt1 = which(sapply(1:length(T.df$PID),function(j){T.df$PID[j]>98.75 && T.df$readLength[j]>minReadLength}))  
   cat("Number of retained reads after initial filtering (PID=98.75) is ",length(ifilt1),"\n")
   if (makeplot1){
     plotname1 = paste(stem,"_histos_PID_Qmean_Op_",opnum,".pdf",sep="")
@@ -160,7 +173,7 @@ linKBtospecR = function(inname){
   if (constructing){
     # Load King's Gut Feeling Knowledge Base.
     gfkb.name = "KGFDB.xlsx"  #  "King CH etal SuppMat S4 Table GutFeeling.KB PLoSOne.0206484.s008.xlsx"
-    KB = read_excel(file.path(basepath,"text",gfkb.name))
+    KB = read_excel(file.path(basepath,"GROND",gfkb.name))
     # Build the mapping from KB to specR
     KBspecR = matrix(0,nrow=164,ncol=3)
     colnames(KBspecR) = c("ind.specR","opLow","opHi")
@@ -184,10 +197,10 @@ linKBtospecR = function(inname){
   # Get KB and KB abundance data to guide rank-ordering on KB abundance data of the strains being used 
   # in mock microbiomes.
   gfkb.name = "KGFDB.xlsx"  #  "King CH etal SuppMat S4 Table GutFeeling.KB PLoSOne.0206484.s008.xlsx"
-  KB = read_excel(file.path(basepath,"text",gfkb.name))
+  KB = read_excel(file.path(basepath,"GROND",gfkb.name))
   
   abundKB.name = "KGFDB_Abundance_Tables.xlsx"
-  AbundKB = read_excel(file.path(basepath,"text",abundKB.name))
+  AbundKB = read_excel(file.path(basepath,"GROND",abundKB.name))
   ord.abKB = order(AbundKB$Average,decreasing=TRUE)
   # Relation between KB and AbundKB is derived with the following:-
   # Define jord.abund as an index on kbgood such that KB[kbgood[jord.abund]],] gives
@@ -231,15 +244,10 @@ linKBtospecR = function(inname){
 ######################################################################################
 ############################     RUN INITIALISATION      ##############################
 #######################################################################################
-whichMock = "mSriSZ2"                  #          "mock50"      #    #   "mock10"
-whichSubunit = "23S"
-whichCase = "03"
 subSampleFactor = 1
 fastqPath = file.path(basepath,"fastq")
 makeplot1 = FALSE  # Covering plotting in PID filtering function
-whichPair = 0
-whichSubMock = 0
-uppErrRate = 0.009;  recipER = round(1/uppErrRate) 
+#recipER = round(1/uppErrRate) 
 
 if (whichMock %in% c("mSriSA1","mSriSA2","mSriSA3","mSriSA4","mSriSZ1","mSriSZ2","mSriSZ3","mSriSZ4")){
   whichPair = substr(whichMock, start=7,stop=7)
@@ -247,6 +255,8 @@ if (whichMock %in% c("mSriSA1","mSriSA2","mSriSA3","mSriSA4","mSriSZ1","mSriSZ2"
     cat("Incompatibility of mock microbiome with whichSubunit.  Selecting rrn \n")
     whichSubunit = "rrn"
   }
+  maxopnum = -1 
+  nmock = -1  
 }
 if (whichMock %in% c("mSerS1","mSerS2","mSerS3","mSerS4")){
   whichSubMock = substr(whichMock, start=6,stop=6)
@@ -254,6 +264,8 @@ if (whichMock %in% c("mSerS1","mSerS2","mSerS3","mSerS4")){
     cat("Incompatibility of mock microbiome with whichSubunit.  Selecting 16S \n")
     whichSubunit = "16S"
   }
+  maxopnum = -1 
+  nmock = -1  
 }
 
 if (whichMock=="mockKB"){
@@ -262,12 +274,12 @@ if (whichMock=="mockKB"){
   stem1 = paste(mstr,whichSubunit,"Case",whichCase,sep="_")
 } else if (whichMock=="mSerF"){
   mstr="mSerF"
-  dataset = paste(mstr,whichSubunit,paste("C",whichCase,sep=""),sep="_")
-  stem1 = paste(mstr,whichSubunit,"Case",whichCase,sep="_")
+  dataset = paste(whichMock,whichSubunit,paste("C",whichCase,sep=""),sep="_")
+  stem1 = paste(whichMock,whichSubunit,"Case",whichCase,sep="_")
 } else if ("mSerS" == substr(whichMock,1,5)){
   mstr="mSerS"
-  dataset = paste(paste(mstr,whichSubMock,sep=""),whichSubunit,paste("C",whichCase,sep=""),sep="_")
-  stem1 = paste(mstr,whichSubunit,paste("Sub",whichSubMock,sep=""),"Case",whichCase,sep="_")
+  dataset = paste(whichMock,whichSubunit,paste("C",whichCase,sep=""),sep="_")
+  stem1 = paste(whichMock,whichSubunit,"Case",whichCase,sep="_")
 } else if (substr(whichMock,1,6) == "mSriSA"){
   mstr="SA"
   dataset = paste(paste(mstr,whichPair,sep=""),whichSubunit,paste("C",whichCase,sep=""),sep="_")
@@ -280,6 +292,8 @@ if (whichMock=="mockKB"){
   mstr ="invalid"
 }
 
+minReadLength = ifelse(whichSubunit=="rrn",4200, ifelse(whichSubunit=="23S",1800, 1100))
+# minReadLength is used as a second filter in  BRfastq_filtPID()  function
 if (nchar(whichMock)>3){
   doPART1 = substr(whichMock,start=1,stop=4) == "mock"
 } else doPART1 = FALSE
@@ -291,24 +305,13 @@ if (nchar(whichMock)>3){
 ##########################                               ##############################
 #######################################################################################
 #######################################################################################
+cat("\n COMMENCING CODE make_mock_and_denoise.R  \n\n")
 if (doPART1){
   # PART 1:  For simulated reads mock microbiomes, construct the read library of rRNA
   #          16S rRNA gene, or 23S rRNA gene or rrn operon reads in the form of a single
   #          fastq file.
   #          N.B.: Can only be run after generation of simulated reads has completed, as 
   #                this gives us the fastq records for each read of each operon.
-  
-  
-  # It is possible to filter on strandedness, so this will be implemented as an option.
-  # Implement quality filtering using the header information on read PID values.
-  extractFastqHeaders(basepath,whichSubunit,maxopnum)
-  
-  # Now filter the reads. This call generates a metadata file for each operon holding:-
-  #    T.df    A data.frame(ID=T[1:nr,1], strand=Strand, readLength=ReadLen, fragLength=FragLen,PID=PID)
-  #    ifilt1  A vector of indeices into T.df that identifies reads with PID > 98.75 
-  #        where T[j,1] is the strain-informative part of the jth fastq sequence's name.
-  PIDFilts = mclapply(1:maxopnum,BRfastq_filtPID,basepath,whichSubunit,makeplot1,mc.cores=numcores)
-  cat("Completed filtering calculation. \n")
   
   DKB = linKBtospecR("specR_etal_grondDB.RData")
   kbgood = DKB[[1]];              nkbgd = length(kbgood) 
@@ -318,6 +321,27 @@ if (doPART1){
   indlow.strainOps = KBspecR[kbgood[jord.abund[,1]],"opLow"]
   indupp.strainOps = KBspecR[kbgood[jord.abund[,1]],"opHi"]
   num_ops_per_species = sapply(1:length(indupp.strainOps),function(j){indupp.strainOps[j] - indlow.strainOps[j]+1})
+  
+  
+  # It is possible to filter on strandedness, so this will be implemented as an option.
+  # Implement quality filtering using the header information on read PID values.
+  extractFastqHeaders(basepath,whichSubunit,maxopnum)
+  
+  # Now filter the reads. This call generates a metadata file for each operon holding:-
+  #    T.df    A data.frame(ID=T[1:nr,1], strand=Strand, readLength=ReadLen, fragLength=FragLen,PID=PID)
+  #    ifilt1  A vector of indices into T.df that identifies reads with PID > 98.75 
+  #        where T[j,1] is the strain-informative part of the jth fastq sequence's name.
+  # BRfastq_filtPID = function(i,basepath,whichSubunit,makeplot1=TRUE)
+  strainName = rep("",maxopnum)
+  PIDFilts = vector("list",maxopnum)
+  for (i in 1:maxopnum){
+    PIDFilts[[i]] = BRfastq_filtPID(i,basepath, whichSubunit, minReadLength, makeplot1=FALSE)
+    strainName[i] = PIDFilts[[i]][[1]][1,1]
+    cat("Opnum ",i,"   strainName ",strainName[i], "  length(ifilt1) ",length(PIDFilts[[i]][[2]]),"\n")
+  }
+  
+  PIDFilts = mclapply(1:maxopnum,BRfastq_filtPID,basepath,whichSubunit,minReadLength,makeplot1=FALSE,,mc.cores=numcores)
+  cat("Completed filtering calculation. \n")
   
   # Determine the maximum number of sequences for the most abundant species.  This requires
   # determination of the minimum number of simulated sequences for the various operons of 
@@ -355,12 +379,19 @@ if (doPART1){
   # Select the fastq records that are to be retained for each operon, and write to file.
   qmode="w"
   mockFastqName = paste(stem1,".fastq",sep="")
+  x1 = list.files(path=file.path(basepath,"fastq"),pattern=mockFastqName)
+  if (length(x1)>0){
+    argstr = paste(" ",file.path(basepath,"fastq",mockFastqName,sep=""))
+    system2(rm, args=argstr1)
+  }
+  cat("\n Commencing writing of fastq records for all reads to file ",mockFastqName,"\n")
   for (jsp in 1:nmock){
     nR = numReads_per_operon_of_species[jsp]
     for (jop in indOp[jsp,1]:indOp[jsp,2]){
       inname = paste("reads_",whichSubunit,"_Op_",jop,"_metadata_Pidfilt_Op_",jop,".RData",sep="")
       load(file.path(basepath,"RData",inname))
       ipostr= which(T.df$strand[ifilt1]>0);  inegstr = which(T.df$strand[ifilt1]<0)
+      cat("jsp jop length(ipostr) length(inegstr),nR: ",jsp, jop, length(ipostr), length(inegstr),nR,"\n")
       isamp = sample(1:length(ipostr),nR)
       iPIDfilt[[jop]] = ifilt1
       fastqname = paste(stem1,jop,".fastq",sep="")
@@ -377,35 +408,11 @@ if (doPART1){
 }
 
 # PART 2: Create sbatch call for RAD denoising. Then dispatch that call via system2().
-setwd("/vast/projects/rrn/ASVcode")  
-argstr1 = paste(" --mem=24GB --time=48:00:00 juliaRADrun.sh --whichMock=",whichMock,
-                                                     " --whichSubunit=",whichSubunit,
-                                                     " --whichCase=",whichCase,
-                                                     " ",whichSubMock," ", whichPair, " ",recipER,sep="",collapse="")
+setwd(basepath)  
+argstr1 = paste(" --mem=24GB --time=48:00:00 juliaRADrun.sh ",basepath,whichMock,
+                         whichSubunit, whichCase, whichSubMock,whichPair, uppErrRate,sep=" ",collapse=" ")
+cat("\n\n sbatch call argstr ",argstr1,"\n\n)")
 system2("sbatch",args=argstr1)
-
-
-
-
-
-
-#############################################################################################
-#############################################################################################
-#########################    REMOVED CODE 22 November     ###################################
-#############################################################################################
-#############################################################################################
-
-readQscore = function(i,frags.Q,start_trim){
-  t1 = as.character(frags.Q[[i]])
-  t1c = unlist(strsplit(t1,split=""))
-  t1.Q = sapply(1:nchar(t1),function(j){as.integer(charToRaw(t1c[j]))-33})
-  t1.Qmean = -10*log10(mean(sapply(start_trim:nchar(t1),function(j){10^(-t1.Q[j]/10)})))
-  t1.Qstd = -10*log10(sd(sapply(start_trim:nchar(t1),function(j){10^(-t1.Q[j]/10)})))
-  t1.meanQ = mean(t1.Q)
-  out = t1.Qmean       #  c(t1.Qmean,t1.Qstd,t1.meanQ)
-  
-  
-}
 
 
 

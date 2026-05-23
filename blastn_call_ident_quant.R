@@ -12,8 +12,9 @@
 # source("/vast/projects/rrn/RscriptsArchive/current/blastn_call_ident_quant.R")
 #
 #
-# 5 December 2025                                                   [cjw]
+# 23 April 2026                                                   [cjw]
 
+args = commandArgs(trailingOnly=TRUE)
 #######################################################################################
 ##########################                               ##############################
 ##########################         INITIALISATIONS       ##############################
@@ -21,7 +22,7 @@
 #######################################################################################
 if (!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager")
 packages <- c("stringr","seqinr","tictoc","readxl","ShortRead","stringdist",
-              "uwot","rnndescent")
+              "uwot","rnndescent","parallel")
 # c("stringr","seqinr","tictoc","readxl","ShortRead", "DECIPHER","bfsl","dplyr",
 #              "nnet", "MASS","stringdist","compositions","scales","uwot","rnndescent")    # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -30,7 +31,43 @@ if (any(installed_packages == FALSE)) {
 }
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
-numcores = 16
+
+# Now set values of parameters specifying the microbiome being analysed and of the analysis.
+# whichMock can take the following forms:- "mockKB", "mSriSA1","mSriSZ3","mSerF","mSerS2", 
+# where the digit, if it occurs, can be 1,2 3 or 4.
+if (length(args>0)){
+  basepath = args[1]
+  whichMock = args[2]
+  whichSubunit = args[3]
+  whichCase = args[4]
+  whichSubMock = args[5]
+  whichPair = args[6]
+  uppErrRate = args[7]
+  maxopnum = args[8]
+  nmock = args[9]
+  numcores = args[10]
+} else {
+  basepath = "/vast/projects/rrn/ASVtest"
+  whichMock = "mockKB"
+  whichSubunit = "rrn"
+  whichCase = "11"
+  whichSubMock = 0
+  whichPair = 0
+  uppErrRate = 0.01
+  maxopnum = 291  # 261 for mock50, 48 for mock10   
+  nmock = 59     #  50 for mock50, 10 for mock10
+  numcores = 4
+}
+cat("\n\n Code blastn_call_ident_quant.R starting, with 10 input parameters.\n")
+cat(basepath,"\n",whichMock,"\n",whichSubunit,"\n",whichCase,"\n",whichSubMock,"\n",
+             whichPair,"\n",uppErrRate,"\n",maxopnum,"\n",nmock,"\n",numcores,"\n\n")
+
+# The error rate is represented by a string with 4 digits to the right of the decimal point. This
+# control of representation is necessary for subsequent file naming. 
+uppERstr = as.character(uppErrRate)
+zz = c2s(sapply(1:6,function(j){out=ifelse(j>nchar(uppERstr),"0",s2c(uppERstr)[j])}))
+uppERstr = zz
+ERstring = paste("ER","less",uppERstr,sep="_")
 verbose = FALSE
 
 #######################################################################################
@@ -158,7 +195,7 @@ linKBtospecR = function(grondPath){
   # Relation between KB and AbundKB is derived with the following:-
   # Define jord.abund as an index on kbgood such that KB[kbgood[jord.abund]],] gives
   # the KB rows that have strains ordered in descending relative abundances - that is,
-  # KB[kbgood[jord.abund[j,1]]],4] corresponds to AbundKB[ord.abKB[jord.abund[j,2]],3]
+  # KB[kbgood[jord.abund[j,1]],1:3] corresponds to AbundKB[ord.abKB[jord.abund[j,2]],1c(1,3,4)]
   jord.abund = matrix(0,nrow=59,ncol=2)
   jord.abund[1,] = c(33,2);    jord.abund[2,] = c(14,8);    jord.abund[3,] = c(34,13)
   jord.abund[4,] = c(22,14);   jord.abund[5,] = c(52,20);   jord.abund[6,] = c(58,21)
@@ -303,6 +340,24 @@ plot_quality_histo = function(inputName, plotName,ThreshLow,ThreshHi){
   }
 }
 
+editDistabs = function(sp1, sp2, k){
+  # Computes the approximate Levenshtein distance between sequences
+  # having length-nmormed kmer spectra sp1, sp2.
+  #    sp1, sp2     the kmer spectrum for kmers of length  k  of sequences 1 and 2
+  #    Lseq1, Lseq2 the length in bases of sequences 1 and 2.
+  #  29 June 2025                                              [cjw]
+  tot = sum(sapply(1:length(sp1),function(j){out=abs(sp1[j] - sp2[j])}))
+  out = tot/(2*k)
+}
+
+EDkmerPar = function(i,allSpec,kS){
+  # allSpec is a matrix of 4^kS rows, each column being a length-normed kmer spectrum
+  # of a read for k-mer length kS.
+  # Returns a vector of ncol(allSpecs) edit distances.
+  # 29 June 2025                                               [cjw]
+  sp1 = allSpec[,i]
+  out = sapply(1:ncol(allSpec),function(j){editDistabs(sp1,allSpec[,j],kS)})
+}
 #######################################################################################
 ############################     RUN INITIALISATION      ##############################
 #######################################################################################
@@ -322,30 +377,19 @@ gapthresh23 = 8
 mmthreshrrn = 30
 gapthreshrrn = 12
 
-whichMock = "mockKB"    # "mSriSZ4"    # "mSerF"     # "mockKB"  # S for Srinivas, A for ATCC, 1 for 27F_2241R primer pair
-# whichMock can take the following forms:- "mockKB", "mSriSA1","mSriSZ3","mSerF","mSerS2", 
-# where the digit, if it occurs, can be 1,2 3 or 4.
-whichSubunit = "rrn"  
-whichCase = "11"
-whichSubMock=0    
-whichPair = 0
-uppErrRate = 0.009;      
-uppERstr = as.character(uppErrRate)
-zz = c2s(sapply(1:6,function(j){out=ifelse(j>nchar(uppERstr),"0",s2c(uppERstr)[j])}))
-uppERstr = zz
-ERstring = paste("ER","less",uppERstr,sep="_")
+
 if (whichMock=="mockKB"){
   mstr = whichMock 
   dataset = paste("mKB",whichSubunit,paste("C",whichCase,sep=""),sep="_")
-  stem1 = paste(mstr,whichSubunit,"Case",whichCase,sep="_")
+  stem1 = paste(whichMock,whichSubunit,"Case",whichCase,sep="_")
 } else if (whichMock=="mSerF"){
   mstr="mSerF"
   dataset = paste(mstr,whichSubunit,paste("C",whichCase,sep=""),sep="_")
-  stem1 = paste(mstr,whichSubunit,"Case",whichCase,sep="_")
+  stem1 = paste(whichMock,whichSubunit,"Case",whichCase,sep="_")
 } else if ("mSerS" == substr(whichMock,1,5)){
   mstr="mSerS"
   dataset = paste(paste(mstr,whichSubMock,sep=""),whichSubunit,paste("C",whichCase,sep=""),sep="_")
-  stem1 = paste(mstr,whichSubunit,paste("Sub",whichSubMock,sep=""),"Case",whichCase,sep="_")
+  stem1 = paste(whichMock,whichSubunit,"Case",whichCase,sep="_")
 } else if (substr(whichMock,1,6) == "mSriSA"){
   mstr="SA"
   dataset = paste(paste(mstr,whichPair,sep=""),whichSubunit,paste("C",whichCase,sep=""),sep="_")
@@ -360,7 +404,6 @@ if (whichMock=="mockKB"){
 
 cat("stem1:    ",stem1,"    dataset:  ",dataset,"\n")
 
-basepath = file.path("/vast/projects/rrn/ASVcode")
 grondPath = file.path(basepath,"GROND")
 blastDBpath = file.path(grondPath,"blastdb2")
 if (whichMock %in% c("mock10","mock50","mockKB","mSerF","mSerS")){
@@ -379,26 +422,23 @@ textpath = file.path(basepath,"text")
 
 ASVfastaName = paste(stem1,"_",ERstring,"_filtered.fasta",sep="")
 
-in_dateString =  "03December2025"         
-out_dateString = "03December2025" 
-
 # Load crapOpNames, opDB.species, opDB.strains, OpNames, ops_per_strain_each_spec, specR
 inname = "specR_etal_grondDB.RData"
 load(file.path(grondPath,inname))
 
 # Set various booleans that determine what parts of the code below are executed.
-doAlign = TRUE    # Set to FALSE if alignment has been done previously as the output from 
+doAlign = FALSE    # Set to FALSE if alignment has been done previously as the output from 
 # alignment will have been generated.  Also the initial processing that parses this
 # output does not need to be repeated.
 
-computeKmerSpectra = TRUE   # only need to be TRUE for first run with this dataset.
+computeKmerSpectra = FALSE   # only need to be TRUE for first run with this dataset.
 
-fullReadset = TRUE    # If TRUE the full set  of ASVs + reads is used to compute the 2D 
-#                       UMAP projection using uwot - see line 1441.
+fullReadset = FALSE    # If TRUE the full set  of ASVs + reads is used to compute the 2D 
+#                       UMAP projection using uwot - see lines ~1441, ~1630.
 # The setting of the Boolean, projJulia, controls which method is used.  Setting
 # projJulia == TRUE requires that the Julia code providing the 2D UMAP coordinates has been run prior to the 
 # plotting code below.
-projJulia = FALSE
+projJulia = ifelse(whichMock == "mockKB",FALSE,TRUE)
 # If  prefiltplot  is TRUE plots are generated of read quality data for reads in the primary mock microbiome libary 
 # whose alignments were of acceptable length.  This can take some time for large libraries, and is generally not used.
 prefiltplot = FALSE 
@@ -562,9 +602,11 @@ if (whichMock %in% c("mock50","mockKB")){
 #    sbatch --mem=32GB --time=2:00:00 /vast/projects/rrn/nanoporeSimulation/shellScripts/ASVkmerSpectra.sh rrn 56
 if(computeKmerSpectra){
   cat("\n Computing kmer spectra of all ASVs via a batch job dispatched at this stage of the code.\n")
-  argstr1 = paste(" --mem=256GB --time=3:00:00 /vast/projects/rrn/nanoporeSimulation/shellScripts/ASVkmerSpectra.sh ",
+  argstr1 = paste(" --mem=256GB --time=3:00:00 ",file.path(basepath,"ASVkmerSpectra.sh"), basepath,
                       whichMock,whichSubunit,whichCase,whichSubMock,whichPair,uppERstr,56,sep=" ")
   system2("sbatch",args=argstr1)
+  cat("Code will be set to sleep for 15 minutes to allow computation of the kmer spectra.  Adjust as necessary. \n")
+  Sys.sleep(900)
 } else {
   cat("\n ASV kmer spectra assumed to have been previously computed. \n")
 }
@@ -599,13 +641,23 @@ blastn_options_str2A = paste('  -max_target_seqs ',maxTargetSeqsA,' -num_threads
 blastn_options_str2B = paste('  -max_target_seqs ',maxTargetSeqsB,' -num_threads ',numcores,sep="",collapse="")
 blastn_call_db = paste(" -db ",file.path(blastDBpath,blastDBname),sep="")
 blastn_call_query = paste(" -query ",file.path(RADFastaPath,ASVfastaName),sep="")
-outnameA = paste("blastn_",stem1,"_",ERstring,"_",blastDBname.short,"_",out_dateString,"_A.txt",sep="")
-outnameB = paste("blastn_",stem1,"_",ERstring,"_",blastDBname.short,"_",out_dateString,"_B.txt",sep="")
+outnameA = paste("blastn_",stem1,"_",ERstring,"_",blastDBname.short,"_A.txt",sep="")
+outnameB = paste("blastn_",stem1,"_",ERstring,"_",blastDBname.short,"_B.txt",sep="")
 checkStr = paste("blastn_",stem1,"_",ERstring,"_",blastDBname.short,sep="")
 btdir = dir(file.path(basepath,"text"),pattern="bl")
-ibt = which(sapply(1:length(btdir),function(j){t1 = str_locate(btdir[j], checkStr); out=!(is.na(t1[1,1]))}))
-innameA = btdir[ibt[1]]   # This avoids the problem of knowing what date the text file was generated.
-innameB = btdir[ibt[2]]
+if (length(btdir)>0){
+  ibt = which(sapply(1:length(btdir),function(j){t1 = str_locate(btdir[j], checkStr); out=!(is.na(t1[1,1]))}))
+  if (length(ibt)>0){
+    innameA = btdir[ibt[1]]   # This avoids the problem of knowing what date the text file was generated.
+    innameB = btdir[ibt[2]]
+  } else {
+    innameA = paste("blastn_",stem1,"_",ERstring,"_",blastDBname.short,"_A.txt",sep="")
+    innameB = paste("blastn_",stem1,"_",ERstring,"_",blastDBname.short,"_B.txt",sep="")
+  }
+} else {
+  innameA = paste("blastn_",stem1,"_",ERstring,"_",blastDBname.short,"_A.txt",sep="")
+  innameB = paste("blastn_",stem1,"_",ERstring,"_",blastDBname.short,"_B.txt",sep="")
+}
 blastn_call_outA = paste(" -out", file.path(basepath,"text",outnameA))
 blastn_call_outB = paste(" -out", file.path(basepath,"text",outnameB))
 argstrA = paste(blastn_call_db,blastn_call_query,blastn_options_str2A,blastn_options_str1,
@@ -752,7 +804,7 @@ if (decodeCrap){
 
 cat("Completion of Part 2.1 \n")
 
-# Part 2.2: Operon, strain, species and genus relative abundance calcuations and plot.
+# Part 2.2: Operon, strain, species and genus relative abundance calculations and plot.
 
 # First some initialising of generic (genus+species+strain+operon) material
 genusNames = rep("",nASVs)
@@ -831,7 +883,7 @@ cat("Observed number of unique genera, species, strains and operons ",nuniqGenus
 #fastaName = "rrnSpeciesDB_grond_refseq207full_C.fasta"
 #specRfullC  = create_specRfullC(fastaName)
 #nsp = length(specRfullC)
-#save(specRfullC,file=file.path(basepath,"RData",specRfullC.RData"))
+#save(specRfullC,file=file.path(basepath,"RData","specRfullC.RData"))
 load(file.path(basepath,"RData","specRfullC.RData"))
 
 cat("\nCompletion of Part 2.1: initialisation \n")
@@ -964,6 +1016,8 @@ nr = length(Dstrain$designStrain)
 nobs = nuniqStrainNamesfull
 
 strainPlot = TRUE
+plotName = paste("scatterplots_",dataset,"_",ERstring,".pdf",sep="")
+pdf(file=file.path(basepath,"plots",plotName),paper="a4r")
 nofitstrain = !strainPlot
 if (strainPlot){
   ivalid = intersect(which(Dstrain$designProps>0.00001),which(Dstrain$obsProps>0.00001))
@@ -1000,7 +1054,7 @@ if (strainPlot){
       plot(xv, yv,main= plottitle, col="white",
            xlab="Design proportions",  ylab="Observed Proportions",
            sub=paste("(Correlation observed RA vs. Design RA ",round(100*cor(xva,yva))/100,")"),
-           xlim= c(0,max(xv)),   ylim = c(0,max(yv)))
+           xlim= c(0,1.5*max(xv)),   ylim = c(0,max(yv)))
       for (j in 1:nr){points(xv[j],yv[j],pch=(j %% 25)+1,col=(j %% 24)+1)}
       legend(x=0.105,y=max(yv),legend=Dstrain$designStrain[ivalid],title="Valid",
              pch=(ivalid %% 25)+1 , col=(ivalid %% 24)+1)
@@ -1078,7 +1132,7 @@ if (speciesPlot){
     plot(xv, yv,main=plottitle, col="white",
          xlab="Design proportions",  ylab="Observed Proportions",
          sub=paste("(Correlation observed RA vs. Design RA ",round(100*cor(xva,yva))/100,fitStr,")",sep=" "),
-         xlim= c(0,max(xv)),   ylim = c(0,max(yv)))
+         xlim= c(0,1.5*max(xv)),   ylim = c(0,max(yv)))
     for (j in 1:nr){points(xv[j],yv[j],pch=(j %% 25)+1,col=(j %% 24)+1)}
 #    legend(x=0.105,y=max(yv),legend=Dspecies$Species[ivalid],title="Valid",
 #           pch=(ivalid %% 25)+1 , col=(ivalid %% 24)+1)
@@ -1138,7 +1192,7 @@ if (genusPlot){
     plot(xv, yv,main=plottitle, col="white",
          xlab="Design proportions",  ylab="Observed Proportions",
          sub=paste("(Correlation observed RA vs. Design RA ",round(100*cor(xva,yva))/100,")"),
-         xlim= c(0,max(xv)),   ylim = c(0,max(yv)))
+         xlim= c(0,1.2*max(xv)),   ylim = c(0,max(yv)))
     for (j in 1:nr){points(xv[j],yv[j],pch=(j %% 25)+1,col=(j %% 24)+1)}
     legend(x="bottomright",legend=Dgenus$Genus[ivalid],title="Valid",
            pch=(ivalid %% 25)+1 , col=(ivalid %% 24)+1)
@@ -1152,23 +1206,25 @@ if (genusPlot){
     abline(reg=fit.genus,col="red")
   }
 }
-  
+ 
+dev.off()
+ 
 outname=paste("blastn_species_Details_",dataset,"_",ERstring,".RData",sep="")
 if (nofitstrain){
   save(uniqStrainNamesfull,StrainASVlist,strainCounts,
       uniqSpeciesNames, nofitstrain, fit.species,fit.genus,
        opsCounts_by_species,opsNames_by_species,uniqOperonCounts, 
-        Dstrain, Dspecies, Dgenus, specR, specRfullC,Sobs,
+        Dstrain, Dspecies, Dgenus, specR, specRfullC,Sobs,removedASVs,
      file=file.path(basepath,"RData",outname))
 } else {
   save(uniqStrainNamesfull,StrainASVlist,strainCounts,
        uniqSpeciesNames, fit.strain, fit.species,fit.genus,
        opsCounts_by_species,opsNames_by_species,uniqOperonCounts, 
-       Dstrain, Dspecies, Dgenus, specR, specRfullC,Sobs,
+       Dstrain, Dspecies, Dgenus, specR, specRfullC,Sobs,removedASVs,
        file=file.path(basepath,"RData",outname))  
 }
 
-
+cat("\n Completed Part 2 - scatterplots \n\n")
 
 # PART 3.   Generation of 2D UMAP Projections and Plots    
 
@@ -1197,11 +1253,6 @@ currentrunID = dataset
 # Jnames gives the headers of each of the fastq records in the filtered fastq file.
 # P is the matrix of 2D UMAP coordinates of the ASVs and reads.
 # Templ gives the sequences of each of the ASVs. 
-if (mstr %in% c("SA","SZ")){
-  stemR = paste(substr(dataset,start=1,stop=7),"Case",substr(CNumStr,start=2,stop=3),sep="_")
-} else {
-  stemR = stem1
-}
 if (projJulia){textfileSet = c(1,2,3,4)} else {textfileSet = c(1,2,4)} 
 for (whichtask in textfileSet){
   task = taskSet[whichtask]
@@ -1249,8 +1300,8 @@ if (prefiltplot){
 
 # Compute and plot read quality for post-filtered files being processed by Julia code.
 
-  inputName = paste(stem1,"_",ERstring,"_filtered.fastq",sep="" )
-  plotName = paste(stem1,"_",ERstring,"_filtered.pdf",sep="" ) 
+inputName = paste(stem1,"_",ERstring,"_filtered.fastq",sep="" )
+plotName = paste(stem1,"_",ERstring,"_filtered.pdf",sep="" ) 
 #  inputName = paste(paste(whichMock,whichSubunit,CaseNumStr,"filtered",sep="_"),".fastq",sep="" ) # For SA<n> cases  
 iret = plot_quality_histo(inputName, plotName,ThreshLow=lenThreshLow,ThreshHi=lenThreshHi)
 
@@ -1263,10 +1314,12 @@ if (projJulia){
   # Load from blastn_call_analysis_v02.R  
   #    uniqStrainNamesfull,StrainASVlist,strainCounts,
   #    opsCounts_by_strain,opsNames_by_strain,uniqOperonCounts
+  plotname = paste("UMAP2D_Julia_",stem1,"_",ERstring,".pdf",sep="")
+  pdf(file=file.path(basepath,"plots",plotname), paper="a4r")
   if (substr(mstr,start=1,stop=2) %in% c("SA","SZ","mS")){ # ,"mSerF","mSerS1","mSerS2","mSerS3","mSerS4")){
     # Load ab,uniqSpeciesNames,genusNames,SpeciesASVlist,speciesCounts,
     #    opsCounts_by_species,opsNames_by_species,uniqOperonCounts, 
-    #      Dspecies, Dgenus, specR,specRfullC,Sobs
+    #      Dspecies, Dgenus, specR,specRfullC,Sobs,removedASVs
     inname=paste("blastn_species_Details_",dataset,"_",ERstring,".RData",sep="")
     load(file=file.path(basepath,"RData",inname))  
     nuniqSpeciesNames = length(uniqSpeciesNames)
@@ -1352,6 +1405,7 @@ if (projJulia){
       }
     }
   }
+  dev.off()
 }
 
 cat("\n      Completed   Part 3.1    \n")
@@ -1361,12 +1415,14 @@ cat("\n      Completed   Part 3.1    \n")
 #           Sub-sampling the read sets of ASVs with a large number of associated reads.
 #           UMAP 2D plot with ASVs, training reads, and embedded reads identified
 #
-plotname = paste("uwot-derived_UMAP2D_subsample_embed",dataset,".pdf",sep="")
-pdf(file=file.path(basepath,"plots",plotname),paper="a4")
+cat("\n Part 3.2 commenced. \n ")   
+#plotname = paste("uwot-derived_UMAP2D_subsample_embed_",dataset,"_",ERstring,".pdf",sep="")
+#pdf(file=file.path(basepath,"plots",plotname),paper="a4")
+#cat("\n plotname : ", plotname,"\n")
 
 # Load pre-computed kmer-based edit distances between ASVs + reads for the relevant dataset.
-inname1 = paste("kmSpecNormed_",stem1,"_",ERstring,".RData",sep="")
-
+#CAVEAT: kmSpecNormed is an object holding kmer spectra, not kmer-based edit distances.
+inname1 = paste("kmSpecNormed_",whichMock,"_",whichSubunit,"_Case_",whichCase,"_",ERstring,".RData",sep="")
 load(file=file.path(basepath,"RData",inname1))
 
 # Get key information to allow identification of ASVs with species.
@@ -1376,8 +1432,192 @@ inname=paste("blastn_species_Details_",dataset,"_",ERstring,".RData",sep="")
 load(file=file.path(basepath,"RData",inname))
 nuniqStrainNamesfull = length(uniqStrainNamesfull)
 
+# Multistrain species visualisation.
+
+if (whichMock %in% c("mock50","mockKB")) {
+  plotname = paste("uwot-derived_UMAP2D_rawManhattanMethod_selectedSpeciesmultiStrain_",dataset,"_",ERstring,".pdf",sep="")
+  pdf(file=file.path(basepath, "plots",plotname),paper="a4r")
+  cat("Full dataset UMAP2D Computation to be undertaken, using umap2. \n")
+  cat("\n Starting plotting based on uwot calls for full read set. \n plotname ",plotname,"\n")
+  
+  
+  # Now plot for selected subsets of the strains - just Bifidobacterium longum, or E.coli, or Bacteroides fragilis
+  speciesNames = sapply(1:nuniqStrainNamesfull,function(j){
+    t1 = unlist(strsplit(uniqStrainNamesfull[j],split=" "))[1:2]
+    out=paste(t1,sep=" ",collapse=" ")})
+  
+  shortStrainNames = sapply(1:nuniqStrainNamesfull,function(j){
+    t1 = unlist(strsplit(uniqStrainNamesfull[j],split=" "))
+    out=t1[length(t1)]
+  })
+  
+  strainSubsetLabel = c("Bifidobacterium longum","Bacteroides fragilis","Escherichia coli",
+                        "Bifidobacterium bifidum","Other LowRA","Top 6 RA")
+  strainSubsets = vector("list",10)
+  strainSubsets[[1]] = which(speciesNames=="Bifidobacterium longum")
+  strainSubsets[[2]] = which(speciesNames=="Bacteroides fragilis")
+  strainSubsets[[3]] = which(speciesNames=="Escherichia coli")
+  strainSubsets[[4]] = which(speciesNames=="Bifidobacterium bifidum")
+  xx=NULL; for (j in 1:4){xx = append(xx,strainSubsets[[j]])}
+  strainSubsets[[5]] = setdiff(7:nuniqStrainNamesfull,xx)                   # Other lower RA species
+  strainSubsets[[6]] = 1:6                                                  # The 6 highest abundance strains
+  Subsetproj.train = vector("list",6)
+  DistMatsAll = vector("list",4)
+  for (k in 1:4){
+    strainSubsets[[k]];   nStSub = length(strainSubsets[[k]])   
+    # strainSubsets[[k]] indexes the strains in the mock microbiome whose species name is, for instance (k==1), "Bifidobacterium longum" 
+    ikmStrainSet = NULL
+    ikmStrainSubsets = vector("list",nStSub)
+    iStrainsASVSet = NULL;  countiSA = 0
+    ik1 = strainSubsets[[k]]   #  ik1 is a set of indices into speciesNames, and also into uniqStrainNamesfull.
+    for (k1 in 1:nStSub){
+      cat("Processing strain ",uniqStrainNamesfull[strainSubsets[[k]]][k1],"\n")
+      Ik1 = NULL
+      ik2 = StrainASVlist[[ik1[k1]]]
+      countiSA = countiSA + length(ik2)   # Counting the ASVs for this subset of strains
+      iStrainsASVSet = append(iStrainsASVSet,ik2)   # Getting the indices of the ASVs for this strain subset
+      for (k2 in 1:length(ik2)){
+        ikmStrainSet = append(ikmStrainSet, ASVreadIndices[[ik2[k2]]])
+        Ik1 = append(Ik1,ASVreadIndices[[ik2[k2]]])
+      }
+      ikmStrainSubsets[[k1]] = Ik1
+    }
+    iStrainsASVSet = iStrainsASVSet[1:countiSA];   niSA = length(iStrainsASVSet)
+    # There are generally far more reads for each ASV than we can afford to compute 
+    # distances for.  Hence we will sample a small number - e.g. 10 - per ASV.
+    # So for Bifidobacterium longum there are 6 strains and 22 ASVs.  So if we have 10
+    # reads sampled for each ASV there will be 220 reads.  Thus the distance measures
+    # would be being computed for 22*(10+1)=242 rrn-length sequences.  More work needed
+    # to get the code for this sorted out!
+    # Ideally we would order the sequences as (ASV1, reads-of-ASV1, ASV2,reads-of-ASV2,...)
+    sampsize = 20
+    iseqs = NULL
+    iASVs = NULL
+    iASVlist = vector("list",nStSub)
+    iASVreadslist = vector("list",nStSub)
+    ireadsSubsampASVs = NULL
+    jacount = 1
+    for (k1 in 1:nStSub){      
+      ik2 = StrainASVlist[[ik1[k1]]]
+      iASVlist[[k1]] = ik2
+      iASVvec = NULL
+      t1 = NULL 
+      for (k2 in 1:length(ik2)){
+        iseqs = append(iseqs,ik2[k2])  # Add the ASV index
+        iASVs = append(iASVs,jacount);  iASVvec = append(iASVvec,jacount)
+        numASVReads = min(sampsize,length(ASVreadIndices[[ik2[k2]]]))
+        isamp = sample(1:length(ASVreadIndices[[ik2[k2]]]),numASVReads)
+        t1 = append(t1,jacount+1:numASVReads)
+        jacount = jacount + 1 + numASVReads
+        iseqs = append(iseqs, nASV+ASVreadIndices[[ik2[k2]]][isamp])
+      }
+      iASVlist[[k1]] = iASVvec 
+      iASVreadslist[[k1]] = t1
+    }
+    # Now compute the set of distances between the operons of this species.
+    
+  #  editDistabs = function(sp1, sp2, k){
+      # Computes the approximate Levenshtein distance between sequences
+      # having length-nmormed kmer spectra sp1, sp2.
+      #    sp1, sp2     the kmer spectrum for kmers of length  k  of sequences 1 and 2
+      #    Lseq1, Lseq2 the length in bases of sequences 1 and 2.
+      #  29 June 2025                                              [cjw]
+ #     tot = sum(sapply(1:length(sp1),function(j){out=abs(sp1[j] - sp2[j])}))
+ #     out = tot/(2*k)
+ #   }
+    
+    EDkmerPar = function(i,allSpec,kS){
+      # allSpec is a matrix of 4^kS rows, each column being a length-normed kmer spectrum
+      # of a read for k-mer length kS.
+      # Returns a vector of ncol(allSpecs) edit distances.
+      # 29 June 2025                                               [cjw]
+      sp1 = allSpec[,i]
+      out = sapply((i+1):ncol(allSpec),function(j){sp2=allSpec[,j]; out=editDistabs(sp1,sp2,kS)})
+    }
+    
+    
+    
+    iOpsSpec = kmSpecNormed[,iseqs]
+    iOpsSpec.df = as.data.frame(t(iOpsSpec))
+    
+    n3 = ncol(iOpsSpec)  
+    j3count = 0
+    iOSdists = NULL   # OS from Observations x Samples where Observations are kmer spectra elements
+    distveclist = mclapply(1:(n3-1),EDkmerPar,iOpsSpec,kS,mc.cores=numcores)
+    distvec = NULL
+    for (j3 in 1:length(distveclist)){
+      distvec = append(distvec,unlist(distveclist[[j3]]))
+    }
+    iOSdists = distvec
+      
+    include2 = FALSE
+    if (include2){
+      for (j3 in 1:(n3-1)){
+        #distvec = mclapply((j3+1):n3,EDkmerPar,iOpsSpec,kS,mc.cores=numcores) 
+        distvec = NULL
+        sp1 = iOpsSpec[,j3]
+        for (i in (j3+1):n3){
+          sp2 = iOpsSpec[,i]
+          dd = editDistabs(sp1,sp2,kS)
+          distvec = append(distvec,dd)
+        }
+        iOSdists = append(iOSdists,unlist(distvec))
+        #    cat(j3,length(distvec),"\n")
+        j3count = j3count + n3-j3
+        #     rm(distvec)
+      }     
+    }     #   end    include2    conditional    block
+    # Form an upper triangular matrix from iOSdists
+    iOSdistmat = matrix(0, nrow = n3, ncol = n3)
+    iOSdistmatu = matrix(0, nrow = n3, ncol = n3);  iOSdistmatl = iOSdistmatu
+    iOSdistmatu[upper.tri(iOSdistmatu, diag = FALSE)] = iOSdists
+    iOSdistmatl = t(iOSdistmatu)
+    # iOSdistmatl[lower.tri(iOSdistmatl, diag = FALSE)] = iOSdists
+    iOSdistmat = iOSdistmatl + iOSdistmatu
+    image(t(iOSdistmat)/max(iOSdistmat))
+    DistMatsAll[[k]] =  round(5000*iOSdistmat) 
+ 
+    
+    cat("About to call umap2 at line 1576 \n")
+    # Am using a dataframe as input which consists of observations on 4^kS variables, the variables being 
+    # kS-mers - 4^kS of them.  This is analogous to the demonstration material using the iris dataset.
+    Subsetproj.train[[k]] = umap(round(5000*iOpsSpec.df), ret_model = FALSE, 
+                                 metric="manhattan",n_neighbors=5, nn_method="nndescent") 
+    Subsetproj.train[[k]] = umap(as.dist(iOSdistmat), ret_model = FALSE, 
+                                 n_neighbors=5, nn_method="nndescent") 
+for (k in 1:4){
+    shortSN = shortStrainNames[strainSubsets[[k]]] 
+    if (length(shortSN)<7){
+      shortSNstr = paste(shortSN,sep=" ",collapse=" ")
+    } else {
+      shortSNstr = paste(paste(shortSN[1:5],sep=" ",collapse=" "),"...",sep="")
+    }
+    plot(Subsetproj.train[[k]][iASVs,1],Subsetproj.train[[k]][iASVs,2],xlab="DIM1",ylab="DIM2",
+           main = paste("Species",strainSubsetLabel[k],"  Strains",shortSNstr,sep=" "),
+            xlim = c(min(Subsetproj.train[[k]][,1]), 1.8*max(Subsetproj.train[[k]][,1])),
+            pch=".",col="black")
+    for (ja in 1:length(iASVlist)){
+      points(Subsetproj.train[[k]][iASVlist[[ja]],1],Subsetproj.train[[k]][iASVlist[[ja]],2],pch=ja,col=ja+1, cex=1.8)
+      points(Subsetproj.train[[k]][iASVreadslist[[ja]],1],Subsetproj.train[[k]][iASVreadslist[[ja]],2],pch=ja,col=ja+1, cex=0.5)
+    }
+    legend(x="bottomright",legend=shortSN,pch=1:length(iASVlist),col=1:length(iASVlist)+1)
+    cat("Completed call of umap at line 1547.\n")
+   
+  }    #    end     k     loop
+  dev.off()
+  outname = "multistrain_distMat_umapCoordSets.RData"
+  save(Subsetproj.train,DistMatsAll,strainSubsetLabel,file=file.path(basepath,"RData",outname))
+  # load(file=file.path(basepath,"RData",outname))
+}      #    end    conditional on being simulated data ("mock")    block
+
+
+
+quit(save="no")
+
+
 threshASVreads = 30
-iumASV = vector("list",nASV)   # The set of indices of reads from each ASV that are to be used in UMAP computation
+iumASV = vector("list",nASV)   # The set of indices of reads from each ASV that are to be 
+                               # used in UMAP computation
 iumASV = lapply(1:nASV,function(j){
   len = length(ASVreadIndices[[j]])
   if (len > threshASVreads){
@@ -1387,10 +1627,6 @@ iumASV = lapply(1:nASV,function(j){
     out = 1:len
   }
 })
-# Now construct the matrix whose columns are the kmer spectra of the reads indexed by iumASV.
-# This will be the input to the call of umap.
-# Also construct the complementary matrix whose columns are those not included in the umap input.
-# This will be the input into umap.predict.
 #kSN = kmSpecNormed
 
 # There is a need to deal with removed ASVs.  The following code is effective in the proJulia-conditioned
@@ -1418,7 +1654,7 @@ iumASV = lapply(1:nASV,function(j){
 colcount1=nASV;   colcount2 = nASV;  colcount3 = 0     # kmSpecNormed includes the ASV spectra in columns 1:nASV
 inU = matrix(0,nrow=4^kS,ncol=(threshASVreads+1)*nASV)
 inU[,1:nASV] = kmSpecNormed[,1:nASV]
-inUset = matrix(0,nrow=(threshASVreads+1)*nASV,ncol=2)
+inUset = matrix(0,nrow=nASV,ncol=2)
 inotU = matrix(0,nrow=4^kS,ncol=length(Jnames))
 innotUset = matrix(0,nrow=length(Jnames),ncol=2)
 for (j in 1:nASV){
@@ -1436,20 +1672,53 @@ for (j in 1:nASV){
   colcount2 = colcount2 + length(ASVreadIndices[[j]])
   colcount3 = colcount3+notc
 }
-inU = inU[,1:colcount1];        inUset = inUset[1:colcount1, ]
+inU = inU[,1:colcount1]
 inotU = inotU[,1:colcount3];    innotUset = innotUset[1:colcount3,] 
 
 #proj = umap(inU, config = umap.defaults,method = "naive",n_neighbors=5,n_components=2,
 #            metric="manhattan")
 
+# Now construct the matrix whose columns are the kmer spectra of the reads indexed by iumASV.
+# This will be the input to the call of umap.
+# Also construct the complementary matrix whose columns are those not included in the umap input.
+# This will be the input into umap.predict.
+# Key function for edit distance calculations is
+##     EDkmerPar = function(i,allSpec,kS){
+##       allSpec is a matrix of 4^kS rows, each column being a length-normed kmer spectrum
+##       of a read for k-mer length of kS.
+##       Returns a vector of ncol(allSpecs) edit distances.
+cat("Commencing computation of pairwise edit distances via kmer-approximation.\n")
+cat("   First for all ASVs + no more than 30 reads per ASV. \n")
+tic()
+n1 = ncol(inU);  jcount = 0
+inUdists = rep(0,n1*(n1-1) %/% 2)
+for (j1 in 1:(n1-1)){
+  distvec = mclapply((j1+1):n1,EDkmerPar,inU,kS,mc.cores=numcores) 
+  inUdists = append(inUdists,distvec)
+  jcount = jcount + n1-j1
+}
+toc()
+
+cat("   Second for all reads not already considered. \n")
+tic()
+n2 = ncol(inotU);  j2count = 0
+inotUdists = rep(0,n2*(n2-1) %/% 2)
+for (j2 in 1:(n2-1)){
+  distvec = mclapply((j2+1):n2,EDkmerPar,inotU,kS,mc.cores=numcores) 
+  inotUdists = append(inotUdists,distvec)
+  j2count = j2count + n2-j2
+}
+toc()
+
+cat("\n Ready to start calls of umap from the uwot package. \n")
 # Using uwot package
 cat("Train umap \n")
 tic()
-proj.train = umap2(t(inU), ret_model = TRUE, nn_method="nndescent")
+proj.train = umap2(inUdists, ret_model = TRUE, nn_method="nndescent")
 toc()
 cat("Embed into umap \n")
 tic()
-proj.embed = umap_transform(t(inotU),proj.train)
+proj.embed = umap_transform(t(colSums(inotU)),proj.train)
 toc()
 totkmerspec = ncol(kmSpecNormed)
 P = t(proj.train$embedding)
@@ -1457,7 +1726,7 @@ Pem = t(proj.embed)
 AllASVreadIndices = NULL
 for (j in 1:nASV){AllASVreadIndices = append(AllASVreadIndices,unlist(ASVreadIndices[[j]])) }
 readsnotASV = setdiff(1:(ncol(kmSpecNormed)-nASV+1),AllASVreadIndices)
-proj.notASVreads = umap_transform(t(kmSpecNormed[,readsnotASV]),proj.train)
+proj.notASVreads = umap_transform(t(colSums(kmSpecNormed[,readsnotASV])),proj.train)
 Pnot = t(proj.notASVreads)
 plottitle = paste("UMAP (embedding) ",stem1, ERstring,sep=" ")
 
@@ -1469,11 +1738,18 @@ if (removedASVs[1]>0){
 } else v2 = v1
 
 
-xv = unlist(as.vector(P[1,v2]));     yv = unlist(as.vector(P[2,v2]))   
+xv = unlist(as.vector(P[1,v2]));     yv = unlist(as.vector(P[2,v2]))
+
+par(mai=c(1.82,1.42,0.82,0.42))  # default is c(1.02,0.82,0.82,0.42)
+par(omi=c(0.5,0.5,0,0))
+magAxis = 1.8;  magLabel = 1.8;  magSub = 1.2
+mySubstr = paste("Red: train reads (",ncol(P),");  Black: ASVs (",length(Jindices),");",
+                 "   Green embedded reads (",ncol(Pem),");  Purple not ASV associated (",length(readsnotASV),")",sep=" ")
 plot(xv,yv,pch="o",col="white",main=plottitle,xlab="Dim1",ylab="Dim2",
-     sub=paste("Red: train reads (",ncol(P),");  Black: ASVs (",length(Jindices),");",
-               "   Green embedded reads (",ncol(Pem),");  Purple not ASV associated (",length(readsnotASV),")",sep=" "),
+     cex.lab=magLabel, cex.axis=magAxis, cex.sub=magSub,
      xlim=c(min(xv),max(xv) + (max(xv)-min(xv))/2))
+mtext(mySubstr, side=1, line=5, adj=0.5, cex=1.5, col="black",outer=FALSE)
+
 points(Pem[1,],Pem[2,],pch="o",col="green",cex=0.4)                                                  # Plot UMAP2D embedded points
 points(as.vector(P[1,(nASV+1):ncol(P)]),as.vector(P[2,(nASV+1):ncol(P)]),pch=19,col="red",cex=0.5)   # Plot UMAP2D training read points
 points(as.vector(P[1,v2]),as.vector(P[2,v2]),pch="+",col="black",cex=0.9)                    # Plot UMAP2D ASV points
@@ -1489,17 +1765,17 @@ legend(x="topright",legend=uniqStrainNamesfull, cex=(1-0.005*nuniqStrainNamesful
        pch=((1:nuniqStrainNamesfull) %% 25) + 1,col=((1:nuniqStrainNamesfull) %% 24) + 1)
 
 outname5 = paste(stem1,ERstring,"umap_projections_embedding.RData",sep="_")
-save(proj.train,proj.embed,proj.notASVreads,file=file.path(basepath,outname5))
+save(proj.train,proj.embed,proj.notASVreads,file=file.path(basepath,"RData",outname5))
 
 dev.off()
 
-
-plotname = paste("uwot-derived_UMAP2D_allReads_",dataset,".pdf",sep="")
-pdf(file=file.path(basepath,plotname),paper="a4")
+plotname = paste("uwot-derived_UMAP2D_allReads_",dataset,"_",ERstring,".pdf",sep="")
+pdf(file=file.path(basepath, "plots",plotname),paper="a4r")
 if (fullReadset){  
   cat("Full dataset UMAP2D Computation to be undertaken. \n")
+  cat("\n Starting plotting based on uwot calls for full read set. plotname ",plotname,"\n")
   tic()
-  proj.all = umap2(t(kmSpecNormed), ret_model = TRUE, nn_method="nndescent")
+  proj.all = umap2(t(colSums(kmSpecNormed)), ret_model = TRUE, nn_method="nndescent")
   toc()
   cat("Completed uwot call on full kmerSpecNormed.\n")
   P = t(proj.all$embedding)
@@ -1538,83 +1814,12 @@ if (fullReadset){
     #}
     points(P[1,v2[pset]],P[2,v2[pset]],pch=(js %% 25) + 1,col=(js %% 24) + 1, cex=1.2)
   } 
+  dev.off()
 }
-
-if (whichMock %in% c("mock50","mockKB")) {
-  # Now plot for selected subsets of the strains - just Bifidobacterium longum, or E.coli, or Bacteroides fragilis
-  speciesNames = sapply(1:nuniqStrainNamesfull,function(j){
-    t1 = unlist(strsplit(uniqStrainNamesfull[j],split=" "))[1:2]
-    out=paste(t1,sep=" ",collapse=" ")})
-  strainSubsetLabel = c("Bifidobacterium longum","Bacteroides fragilis","Escherichia coli",
-                        "Bifidobacterium bifidum","Other LowRA","Top 6 RA")
-  strainSubsets = vector("list",10)
-  strainSubsets[[1]] = which(speciesNames=="Bifidobacterium longum")
-  strainSubsets[[2]] = which(speciesNames=="Bacteroides fragilis")
-  strainSubsets[[3]] = which(speciesNames=="Escherichia coli")
-  strainSubsets[[4]] = which(speciesNames=="Bifidobacterium bifidum")
-  xx=NULL; for (j in 1:4){xx = append(xx,strainSubsets[[j]])}
-  strainSubsets[[5]] = setdiff(7:nuniqStrainNamesfull,xx)                   # Other lower RA species
-  strainSubsets[[6]] = 1:6                                                  # The 6 highest abundance strains
-  Subsetproj.train = vector("list",6)
-  for (k in 1:5){
-    strainSubsets[[k]];   nStSub = length(strainSubsets[[k]])   
-    # strainSubsets[[k]] indexes the strains in the mock microbiome whose species name is, for instance (k==1), "Bifidobacterium longum" 
-    ikmStrainSet = NULL
-    ikmStrainSubsets = vector("list",nStSub)
-    iStrainsASVSet = NULL;  countiSA = 0
-    ik1 = strainSubsets[[k]]   #  ik1 is a set of indices into speciesNames, and also into uniqStrainNamesfull.
-    for (k1 in 1:nStSub){
-      cat("Processing strain ",uniqStrainNamesfull[strainSubsets[[k]]][k1],"\n")
-      Ik1 = NULL
-      countiSA = countiSA + length(StrainASVlist[[ik1[k1]]])   # Counting the ASVs for this subset of strains
-      iStrainsASVSet = append(iStrainsASVSet,StrainASVlist[[ik1[k1]]])   # Getting the indices of the ASVs for this strain subset
-      ik2 = StrainASVlist[[ik1[k1]]]
-      for (k2 in 1:length(ik2)){
-        ikmStrainSet = append(ikmStrainSet, ASVreadIndices[[ik2[k2]]])
-        Ik1 = append(Ik1,ASVreadIndices[[ik2[k2]]])
-      }
-      ikmStrainSubsets[[k1]] = Ik1
-    }
-    iStrainsASVSet = iStrainsASVSet[1:countiSA];   niSA = length(iStrainsASVSet)
-    Subsetproj.train[[k]] = umap2(t(kmSpecNormed[,c(iStrainsASVSet,nASV+ikmStrainSet)]), ret_model = TRUE, 
-                                  n_threads=numcores, metric="manhattan",n_neighbors=5, nn_method="nndescent") 
-    Pss = t(Subsetproj.train[[k]]$embedding)
-    plot.default(Pss[1,niSA+1:length(ikmStrainSet)],Pss[2,niSA+1:length(ikmStrainSet)],pch=19,col="green", cex=0.5,
-                 xlab="DIM 1",ylab="DIM 2", 
-                 main=paste("2D UMAP for ",dataset," Subset ",strainSubsetLabel[k],ERstring,sep=" "),
-                 xlim = c(min(Pss[1,]),2.5*max(Pss[1,])),ylim=c(min(Pss[2,]),max(Pss[2,])))
-    # Now plot the ASVs for each strain of this Subset, using distibguishing markers for each strain.
-    poffset = countiSA
-    for (k1 in 1:nStSub){
-      # pset gives the indices into the coordinates from training of reads for a particular strain
-      pset = poffset+1:length(ikmStrainSubsets[[k1]])
-      points(Pss[1,pset],Pss[2,pset],pch=19,col=(k1 %% 24) + 1, cex=0.5)
-      poffset = poffset + length(ikmStrainSubsets[[k1]])
-    }
-    # aset gives the indices of the ASVs of this strain
-    for (k1 in 1:nStSub){
-      ik2 = StrainASVlist[[ik1[k1]]]
-      aset = sapply(1:length(ik2),function(j){i=which(iStrainsASVSet == ik2[j])})
-      points(Pss[1,aset],Pss[2,aset],pch=(k1 %% 25) + 1,col=(k1 %% 24) + 1,cex=1.9)
-      points(Pss[1,aset],Pss[2,aset],pch=(k1 %% 25) + 1,col=(k1 %% 24) + 1,cex=2)
-      points(Pss[1,aset],Pss[2,aset],pch=(k1 %% 25) + 1,col="black",cex=1.5)
-    }
-    
-    legend(x="topright",legend=uniqStrainNamesfull[strainSubsets[[k]]],
-           pch=(1:nStSub %% 25) + 1, col=(1:nStSub %% 24) + 1)
-    
-  }    #    end     k     loop
-  outname4 = paste(stem1,ERstring,"umap_projections_fullReadset.RData",sep="_")
-  if (fullReadset){
-    save(Subsetproj.train,proj.all,fullReadset,file=file.path(basepath,outname4))
-  } else {
-    save(Subsetproj.train,fullReadset,file=file.path(basepath,outname4))
-  }
-}
-
-dev.off()
 
 cat("\n\n      COMPLETED   PART  3    \n\n")
+
+quit(save="no")
 
 
 # PART 4: Gather data on ASV "purity", a measure of how close an ASV is to being associated with
@@ -2006,6 +2211,63 @@ BRfastq_filtPID = function(i,fastqPath,whichSubunit,makeplot1=TRUE){
   out = list(Tdf = T.df, PIDfilt=ifilt1)
 }
 
+
+#######################################################################
+# For Bifidobacterium bifidum strains we have the following:- 
+#   For the 8 ASVs of the 3 strains
+ivec = c(1,22,43,64,85,97,107,128)
+print(round(DistMatsAll[[4]][ivec,ivec]))
+# Splitting into the individual strains:-
+ivecStr = vector("list",3)
+ivecStr[[1]] = c(1,22);  ivecStr[[2]] = c(43,64,85,97);   ivecStr[[3]] = c(107,128)
+round(5000*iOSdistmat[c(3,4,5),c(3,4,5,6)]/(2*kS-1))
+for (j in 1:3){
+  cat("Strain PRL2010");  print(round(DistMatsAll[[4]][ivecStr[[j]],ivecStr[[j]]]))
+}
+
+# Considering the reads now.  Take ASV372 of S17, which has 9 associated reads.
+ivecR = 97:106
+print(round(DistMatsAll[[4]][ivecR,ivecR]))
+
+
+#######################################################################
+#######################################################################
+# Checking, using iris data, use of different forms of input to (uwot) umap.
+nI = nrow(iris)
+ns = 50
+isamp = sample(1:nI,ns)
+irisDist = matrix(1e-10,ns,ns)
+for (j1 in 1:(ns-1)){
+  for (j2 in (j1+1):ns){
+    irisDist[j1,j2] = sum(sapply(1:4,function(j){abs(iris[isamp[j1],j]-iris[isamp[j2],j])}))
+    irisDist[j2,j1] = irisDist[j1,j2]
+  }
+}
+nn = 3
+Umetric1 = "manhattan";  Umetric2 = "sumAbsDiff"
+Iumap1 = umap(iris[isamp,1:4], ret_model = FALSE, 
+              metric="manhattan",n_neighbors=nn) 
+Iumap2 = umap(as.dist(irisDist), ret_model = FALSE, n_neighbors=nn)
+
+par(mfrow=c(1,2))
+plot(Iumap1[,1],Iumap1[,2],xlab="DIM1",ylab="DIM2",
+     main = paste("Iris Data - Raw",nn,Umetric1,sep=" "),pch="o",col="black")
+plot(Iumap2[,1],Iumap2[,2],xlab="DIM1",ylab="DIM2",
+     main = paste("Iris Data - DistMat",nn,Umetric2,sep=" "),pch="+",col="blue")
+
+
+
+for (ja in 1:length(iASVlist)){
+  points(Subsetproj.train[[k]][iASVlist[[ja]],1],Subsetproj.train[[k]][iASVlist[[ja]],2],pch=ja,col=ja+1, cex=1.8)
+  points(Subsetproj.train[[k]][iASVreadslist[[ja]],1],Subsetproj.train[[k]][iASVreadslist[[ja]],2],pch=ja,col=ja+1, cex=0.5)
+}
+legend(x="bottomright",legend=shortSN,pch=1:length(iASVlist),col=1:length(iASVlist)+1)
+
+
+#  Subsetproj.train[[k]] = umap(round(5000*iOpsSpec.df), ret_model = FALSE, 
+#                               metric="manhattan",n_neighbors=5, nn_method="nndescent") 
+#Subsetproj.train[[k]] = umap(as.dist(iOSdistmat), ret_model = FALSE, 
+#                             n_neighbors=5, nn_method="nndescent") 
 
 
 
