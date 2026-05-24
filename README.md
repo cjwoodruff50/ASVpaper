@@ -107,6 +107,7 @@ To directly run the processing pipeline for one of the datasets proceed as follo
      * whichMock          is only non-zero for mSerS (Sereika) datasets
      * whichPair          is only non-zero for mSri (Srinivas) datasets
      * Numops Nstrain are only non-zero for simulated read (mockKB) datasets
+     * maxNop             is the maximum number of simulated reads for any operon in a mock microbiome. It is a key determinant of the library size(only relevant for simulated reads datasets).
    
    
 2. Create an operon store for simulated reads mock microbiome - e.g. mockKB_23S_C11
