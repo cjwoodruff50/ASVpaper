@@ -42,11 +42,12 @@ The code has been written to run any of 21 datasets, and could be modified relat
 ### Figshare repository description and content use.
 
 #### Description
-Figshare account .... holds the set of files related to the blast reference databases 
-and the 18 datasets of real nanopore-sequenced data.  The blast-related set of files are
-in the item  DB1_DB2_multifasta_specR_KGDB_files.  The datasets are in two parts - that from
-Srinivas M et al. (2025) and that from extracting 16S and 23S rRNA gene sequences from 
-whole genome sequencing of microbiomes in the study of Sereika M et al. (2022).  The 
+Figshare holds the set of files related to the blast reference databases 
+and the 18 datasets of real nanopore-sequenced data.  These are accessed at 
+  https://figshare.com/articles/dataset/Sereika_10_datasets_Srinivas_8_datasets/31052200 
+and  
+  https://figshare.com/articles/dataset/DB1_DB2_multifasta_specR_KGDB_files/31041886    
+The blast-related set of files are in the item  DB1_DB2_multifasta_specR_KGDB_files.  The datasets are in two parts - that from Srinivas M et al. (2025) and that from extracting 16S and 23S rRNA gene sequences from whole genome sequencing of microbiomes in the study of Sereika M et al. (2022).  The 
 Srinivas datasets are individually available as gzipped files, while the Sereika datasets, 
 being much smaller, were tarred before gzipping.
 
