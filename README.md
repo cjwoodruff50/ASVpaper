@@ -117,10 +117,11 @@ To directly run the processing pipeline for one of the datasets proceed as follo
                 meanQ stdQ Numops Nstrain maxNop nthreads
    
    Sample call (noting that mockKB has 59 strains and 291 operons):-
+   
      Rscript --vanilla make_mock_operon_store.R /vast/projects/rrn/ASVtest 
                mockKB 23S 11 30 4 291 59 30000 12           
             
-3. Create the fastq file that is the read library for a simulated reads mock microbiome.
+4. Create the fastq file that is the read library for a simulated reads mock microbiome.
    Denoise the microbiome created or one that is from real sequencing.
    
    Rscript --vanilla make_mock_and_denoise.R basepath whichMock whichSubunit whichCase
