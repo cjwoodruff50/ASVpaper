@@ -127,7 +127,7 @@ To directly run the processing pipeline for one of the datasets proceed as follo
      whichSubMock whichPair uppThreshErrRate Numops Nstrain numcores
    
    Sample calls  
-    e.g. for mockKB_23S_C11 (whichSubMock=0, whihchPair=0 for any simulated reads dataset)
+    e.g. for mockKB_23S_C11 (whichSubMock=0, whichPair=0 for any simulated reads dataset)
    
     Rscript --vanilla make_mock_and_denoise.R /vast/projects/rrn/ASVtest mockKB 23S 11 0 0
                         0.01 291 59 2
