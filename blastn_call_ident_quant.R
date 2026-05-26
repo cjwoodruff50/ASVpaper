@@ -1,4 +1,4 @@
-# Rscript to construct a blastn call given a multi-sequence fasta file of queries and
+# Rscript to construct a blastn call given a multi-sequence ffasta file of queries and
 # a blastn reference database, and then to process blastn text output to extract
 # identification and quantification of microbiome strains.
 # This is derived from blastn_call_analysis_v03.R with internal date of 23 October 2025.
@@ -12,7 +12,7 @@
 # source("/vast/projects/rrn/RscriptsArchive/current/blastn_call_ident_quant.R")
 #
 #
-# 23 April 2026                                                   [cjw]
+# 26 May 2026                                                   [cjw]
 
 args = commandArgs(trailingOnly=TRUE)
 #######################################################################################
@@ -47,9 +47,9 @@ if (length(args>0)){
   nmock = args[9]
   numcores = args[10]
 } else {
-  basepath = "/vast/projects/rrn/ASVtest"
+  basepath = "/vast/projects/rrn/ASVcode"
   whichMock = "mockKB"
-  whichSubunit = "rrn"
+  whichSubunit = "23S"
   whichCase = "11"
   whichSubMock = 0
   whichPair = 0
@@ -179,18 +179,18 @@ linKBtospecR = function(grondPath){
   # 11 August 2025 
   # Load crapOpNames, opDB.species, opDB.strains, OpNames, ops_per_strain_each_spec, specR
   inname = "specR_etal_grondDB.RData"
-  load(file.path(grondPath,inname))
+  load(file.path(basepath,"RData",inname))
   innameK = "KBspecR_matrix.RData"
-  load(file.path(grondPath,innameK))
+  load(file.path(basepath,"RData",innameK))
   kbgood = which(KBspecR[,"opHi"]>0);  nkbgd = length(kbgood)
   # for (j in 1:nkbgd){print(specR[[KBspecR[kbgood[j],1]]]$strainOps[KBspecR[kbgood[j],2]:KBspecR[kbgood[j],3]])}
   
   # Get KB and KB abundance data to guide rank-ordering on KB abundance data of the strains being used 
   # in mock microbiomes.
   gfkb.name = "KGFDB.xlsx"  #  "King CH etal SuppMat S4 Table GutFeeling.KB PLoSOne.0206484.s008.xlsx"
-  KB = read_excel(file.path(grondPath,gfkb.name))
+  KB = read_excel(file.path(basepath,"text",gfkb.name))
   abundKB.name = "KGFDB_Abundance_Tables.xlsx"
-  AbundKB = read_excel(file.path(grondPath,abundKB.name))
+  AbundKB = read_excel(file.path(basepath,"text",abundKB.name))
   ord.abKB = order(AbundKB$Average,decreasing=TRUE)
   # Relation between KB and AbundKB is derived with the following:-
   # Define jord.abund as an index on kbgood such that KB[kbgood[jord.abund]],] gives
@@ -424,10 +424,10 @@ ASVfastaName = paste(stem1,"_",ERstring,"_filtered.fasta",sep="")
 
 # Load crapOpNames, opDB.species, opDB.strains, OpNames, ops_per_strain_each_spec, specR
 inname = "specR_etal_grondDB.RData"
-load(file.path(grondPath,inname))
+load(file.path(basepath,"RData",inname))
 
 # Set various booleans that determine what parts of the code below are executed.
-doAlign = FALSE    # Set to FALSE if alignment has been done previously as the output from 
+doAlign = TRUE    # Set to FALSE if alignment has been done previously as the output from 
 # alignment will have been generated.  Also the initial processing that parses this
 # output does not need to be repeated.
 
@@ -782,7 +782,7 @@ if (decodeCrap){
   # the code that generated the fasta file used in creating the reference database. Then substitute
   # the IDs given in the list object S generated above by the corresponding informative IDs.
   inname = "specR_etal_grondDB.RData"   # This gives specR in which elements of operon name are separated by spaces.
-  load(file=file.path("/vast/projects/rrn/GROND/output/RData",inname))
+  load(file=file.path(basepath,"RData",inname))
   OpNames = rep("",100000)
   opsCount = 0
   for (j in 1:length(specR)){
@@ -1535,8 +1535,6 @@ if (whichMock %in% c("mock50","mockKB")) {
       out = sapply((i+1):ncol(allSpec),function(j){sp2=allSpec[,j]; out=editDistabs(sp1,sp2,kS)})
     }
     
-    
-    
     iOpsSpec = kmSpecNormed[,iseqs]
     iOpsSpec.df = as.data.frame(t(iOpsSpec))
     
@@ -1567,25 +1565,23 @@ if (whichMock %in% c("mock50","mockKB")) {
         #     rm(distvec)
       }     
     }     #   end    include2    conditional    block
-    # Form an upper triangular matrix from iOSdists
+    # Form a lower triangular matrix from iOSdists
     iOSdistmat = matrix(0, nrow = n3, ncol = n3)
     iOSdistmatu = matrix(0, nrow = n3, ncol = n3);  iOSdistmatl = iOSdistmatu
-    iOSdistmatu[upper.tri(iOSdistmatu, diag = FALSE)] = iOSdists
-    iOSdistmatl = t(iOSdistmatu)
-    # iOSdistmatl[lower.tri(iOSdistmatl, diag = FALSE)] = iOSdists
+    iOSdistmatl[lower.tri(iOSdistmatl, diag = FALSE)] = iOSdists
+    iOSdistmatu = t(iOSdistmatl)
     iOSdistmat = iOSdistmatl + iOSdistmatu
     image(t(iOSdistmat)/max(iOSdistmat))
     DistMatsAll[[k]] =  round(5000*iOSdistmat) 
  
-    
-    cat("About to call umap2 at line 1576 \n")
+    cat("About to call umap2 at line 1580 \n")
     # Am using a dataframe as input which consists of observations on 4^kS variables, the variables being 
     # kS-mers - 4^kS of them.  This is analogous to the demonstration material using the iris dataset.
     Subsetproj.train[[k]] = umap(round(5000*iOpsSpec.df), ret_model = FALSE, 
                                  metric="manhattan",n_neighbors=5, nn_method="nndescent") 
     Subsetproj.train[[k]] = umap(as.dist(iOSdistmat), ret_model = FALSE, 
                                  n_neighbors=5, nn_method="nndescent") 
-for (k in 1:4){
+    cat("Completed call of umap at line 1583.\n")
     shortSN = shortStrainNames[strainSubsets[[k]]] 
     if (length(shortSN)<7){
       shortSNstr = paste(shortSN,sep=" ",collapse=" ")
@@ -1593,17 +1589,16 @@ for (k in 1:4){
       shortSNstr = paste(paste(shortSN[1:5],sep=" ",collapse=" "),"...",sep="")
     }
     plot(Subsetproj.train[[k]][iASVs,1],Subsetproj.train[[k]][iASVs,2],xlab="DIM1",ylab="DIM2",
-           main = paste("Species",strainSubsetLabel[k],"  Strains",shortSNstr,sep=" "),
-            xlim = c(min(Subsetproj.train[[k]][,1]), 1.8*max(Subsetproj.train[[k]][,1])),
-            pch=".",col="black")
+         main = paste("Species",strainSubsetLabel[k],"  Strains",shortSNstr,sep=" "),
+         xlim = c(min(Subsetproj.train[[k]][,1]), 1.8*max(Subsetproj.train[[k]][,1])),
+         pch=".",col="black")
     for (ja in 1:length(iASVlist)){
       points(Subsetproj.train[[k]][iASVlist[[ja]],1],Subsetproj.train[[k]][iASVlist[[ja]],2],pch=ja,col=ja+1, cex=1.8)
       points(Subsetproj.train[[k]][iASVreadslist[[ja]],1],Subsetproj.train[[k]][iASVreadslist[[ja]],2],pch=ja,col=ja+1, cex=0.5)
     }
     legend(x="bottomright",legend=shortSN,pch=1:length(iASVlist),col=1:length(iASVlist)+1)
-    cat("Completed call of umap at line 1547.\n")
-   
-  }    #    end     k     loop
+     
+  }    #    end    k    loop 
   dev.off()
   outname = "multistrain_distMat_umapCoordSets.RData"
   save(Subsetproj.train,DistMatsAll,strainSubsetLabel,file=file.path(basepath,"RData",outname))

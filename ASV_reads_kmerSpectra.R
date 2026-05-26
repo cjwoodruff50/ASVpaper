@@ -41,8 +41,8 @@ if (length(args>0)){
   whichCase = "11"
   whichSubMock = 0
   whichPair = 0
-  uppErrRate = "0.01"
-  numcores = 2
+  uppErrRate = 0.0100
+  numcores = 4
 }
 
 

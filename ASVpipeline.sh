@@ -9,10 +9,10 @@
 #SBATCH --time 48:00:00
 #SBATCH --mem=256G
 module unload R
-module load R/4.5.2
+module load R/4.5.3
 cd $1
 # Create the operon store for simulated reads mock microbiome - e.g. mockKB_rrn_C11
-### Rscript --vanilla /vast/projects/rrn/ASVtest/make_mock_operon_store.R $1 $2 $3 $4 ${11} ${12} $8 $9 ${13} ${10}
+### Rscript --vanilla make_mock_operon_store.R $1 $2 $3 $4 ${11} ${12} $8 $9 ${13} ${10}
 #
 # Create the fastq file that is the read library for a simulate reads mock microbiome.  Then
 # denoise that microbiome.

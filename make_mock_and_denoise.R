@@ -9,7 +9,7 @@
 #
 # source("/vast/projects/rrn/ASVset/make_mock_and_denoise.R") 
 #
-# 9 April 2026                                                                    [cjw]
+# 26 May 2026                                                                    [cjw]
 cat("\n COMMENCING CODE make_mock_and_denoise.R  \n\n")
 args = commandArgs(trailingOnly=TRUE)
 #######################################################################################
@@ -31,7 +31,7 @@ if (length(args>0)){
 } else {
   basepath = "/vast/projects/rrn/ASVtest"
   whichMock = "mockKB"        # "mSerF"   # "mSerS3"   #    "mSriSZ2"                  
-  whichSubunit = "rrn"
+  whichSubunit = "23S"
   whichCase = "11"
   whichSubMock = 0
   whichPair = 0
@@ -50,7 +50,8 @@ if (any(installed_packages == FALSE)) {
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
 
-doPART1 = TRUE
+# doPART1 = TRUE    # This boolean is set in the RUN Initialisation block based on the 
+#                     value of   whichMock  (TRUE if whichM<ock == "mockKB" else FALSE)
 #######################################################################################
 ##########################                               ##############################
 ##########################           FUNCTIONS           ##############################
@@ -93,7 +94,7 @@ extractFastqHeaders=function(basepath,whichSubunit,maxopnum){
 BRfastq_filtPID = function(i, basepath, whichSubunit, minReadLength=4200, makeplot1=TRUE){ 
   opnum=i  
   stem = paste("reads_",whichSubunit,"_Op_",opnum,sep="")           #  unlist(strsplit(fastqName,split="[.]"))[1]
-  readHeadersName = paste("reads_",whichSubunit,"_Op_",opnum,"_headers.txt",sep="")
+  readHeadersName = paste(stem,"_headers.txt",sep="")
   X = readLines(con=file.path(basepath,"text",readHeadersName))
   igood = which(sapply(1:length(X), function(j){nchar(X[j])< 180}))  
   newname = paste(stem,"_Qstripped.txt",sep="")
@@ -294,6 +295,7 @@ if (whichMock=="mockKB"){
 
 minReadLength = ifelse(whichSubunit=="rrn",4200, ifelse(whichSubunit=="23S",1800, 1100))
 # minReadLength is used as a second filter in  BRfastq_filtPID()  function
+
 if (nchar(whichMock)>3){
   doPART1 = substr(whichMock,start=1,stop=4) == "mock"
 } else doPART1 = FALSE
@@ -339,8 +341,6 @@ if (doPART1){
     strainName[i] = PIDFilts[[i]][[1]][1,1]
     cat("Opnum ",i,"   strainName ",strainName[i], "  length(ifilt1) ",length(PIDFilts[[i]][[2]]),"\n")
   }
-  
-  PIDFilts = mclapply(1:maxopnum,BRfastq_filtPID,basepath,whichSubunit,minReadLength,makeplot1=FALSE,,mc.cores=numcores)
   cat("Completed filtering calculation. \n")
   
   # Determine the maximum number of sequences for the most abundant species.  This requires
@@ -389,7 +389,7 @@ if (doPART1){
     nR = numReads_per_operon_of_species[jsp]
     for (jop in indOp[jsp,1]:indOp[jsp,2]){
       inname = paste("reads_",whichSubunit,"_Op_",jop,"_metadata_Pidfilt_Op_",jop,".RData",sep="")
-      load(file.path(basepath,"RData",inname))
+      load(file.path(basepath,"RData",inname))  # Loads T.df and ifilt1 for the current operon
       ipostr= which(T.df$strand[ifilt1]>0);  inegstr = which(T.df$strand[ifilt1]<0)
       cat("jsp jop length(ipostr) length(inegstr),nR: ",jsp, jop, length(ipostr), length(inegstr),nR,"\n")
       isamp = sample(1:length(ipostr),nR)

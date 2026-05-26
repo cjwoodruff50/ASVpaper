@@ -31,14 +31,14 @@ if (length(args>0)){
 } else {
   basepath = "/vast/projects/rrn/ASVtest"
   whichMock = "mockKB"
-  whichSubunit = "rrn"
+  whichSubunit = "23S"
   whichCase = "11"
-  identMean = 30
+  identMean = 26
   identSD = 4
   maxopnum = 291  # 291 for mockKB (59 strains), 261 for mock50 (50 strains)
   nmock = 59
-  maxTotfrags = 30000  
-  numcores = 16
+  maxTotfrags = 50000  
+  numcores = 4
 }
 
 cat("Basepath  is ",basepath,"\n")
@@ -252,7 +252,7 @@ for (jsp in 1:nmock){
     newf1 = ShortRead(sread(f1[1]),id = BStringSet(newid))
     f1 = newf1
     if (width(f1) >5600) cat("\n Case jsp = ",jsp,"    jop = ",jop,"  too long.\n")
-#    writeFasta(f1,file=file.path(outPath,paste(outstem,opcount,".fasta",sep="")))
+    writeFasta(f1,file=file.path(outPath,paste(outstem,opcount,".fasta",sep="")))
     fastaseqLengths[opcount] = width(f1)
   }
   cat("Num_ops_per_strain",num_ops_per_strain[jsp],"\n\n")
